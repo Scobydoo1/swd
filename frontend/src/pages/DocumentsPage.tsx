@@ -1,0 +1,180 @@
+import { useEffect, useRef, useState } from "react";
+import { api } from "../api/client";
+import type { Course, Document } from "../types";
+
+const statusStyle: Record<string, string> = {
+  INDEXED: "bg-emerald-100 text-emerald-700",
+  PROCESSING: "bg-amber-100 text-amber-700",
+  FAILED: "bg-rose-100 text-rose-700",
+};
+const statusLabel: Record<string, string> = {
+  INDEXED: "Đã index",
+  PROCESSING: "Đang xử lý",
+  FAILED: "Thất bại",
+};
+const typeIcon: Record<string, string> = {
+  PDF: "📄",
+  DOCX: "📝",
+  PPTX: "📊",
+};
+
+export function DocumentsPage() {
+  const [docs, setDocs] = useState<Document[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = () =>
+    api.get<Document[]>("/documents").then((r) => setDocs(r.data));
+
+  useEffect(() => {
+    load();
+    api.get<Course[]>("/courses").then((r) => {
+      setCourses(r.data);
+      if (r.data[0]) setCourseId(r.data[0].id);
+    });
+  }, []);
+
+  const upload = async (file: File) => {
+    if (!courseId) return;
+    setError("");
+    setUploading(true);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("course_id", String(courseId));
+    try {
+      await api.post("/documents", form);
+      await load();
+    } catch (e: any) {
+      setError(e.response?.data?.detail ?? "Upload thất bại");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const remove = async (id: number) => {
+    if (!confirm("Xóa tài liệu này khỏi hệ thống?")) return;
+    await api.delete(`/documents/${id}`);
+    load();
+  };
+
+  return (
+    <div className="h-full overflow-y-auto p-8">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-6">
+          <h1 className="text-2xl font-extrabold text-slate-800">
+            Quản lý tài liệu
+          </h1>
+          <p className="text-sm text-slate-400">
+            Upload tài liệu bài giảng — hệ thống tự động chunk & embed.
+          </p>
+        </header>
+
+        <div className="mb-6 flex items-center gap-3">
+          <label className="text-sm font-medium text-slate-600">Môn học:</label>
+          <select
+            value={courseId ?? ""}
+            onChange={(e) => setCourseId(Number(e.target.value))}
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+          >
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Upload zone */}
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
+          }}
+          onClick={() => fileRef.current?.click()}
+          className="mb-8 cursor-pointer rounded-3xl border-2 border-dashed border-brand-200 bg-gradient-to-br from-brand-50/50 to-white p-10 text-center transition hover:border-brand-400 hover:bg-brand-50"
+        >
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.docx,.pptx"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+          />
+          {uploading ? (
+            <div className="text-brand-600">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
+              Đang xử lý & index tài liệu…
+            </div>
+          ) : (
+            <>
+              <div className="text-4xl">⬆️</div>
+              <p className="mt-3 font-semibold text-slate-700">
+                Kéo thả hoặc bấm để chọn file
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Hỗ trợ PDF, DOCX, PPTX
+              </p>
+            </>
+          )}
+        </div>
+
+        {error && (
+          <p className="mb-4 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">
+            {error}
+          </p>
+        )}
+
+        {/* Document list */}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="grid grid-cols-12 gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase text-slate-400">
+            <div className="col-span-6">Tài liệu</div>
+            <div className="col-span-2">Chunks</div>
+            <div className="col-span-2">Trạng thái</div>
+            <div className="col-span-2 text-right">Thao tác</div>
+          </div>
+          {docs.length === 0 && (
+            <p className="px-5 py-10 text-center text-sm text-slate-400">
+              Chưa có tài liệu nào được index.
+            </p>
+          )}
+          {docs.map((d) => (
+            <div
+              key={d.id}
+              className="grid grid-cols-12 items-center gap-3 border-b border-slate-50 px-5 py-3.5 text-sm transition hover:bg-slate-50/50"
+            >
+              <div className="col-span-6 flex items-center gap-3">
+                <span className="text-xl">{typeIcon[d.file_type]}</span>
+                <span className="truncate font-medium text-slate-700">
+                  {d.filename}
+                </span>
+              </div>
+              <div className="col-span-2 text-slate-500">{d.num_chunks}</div>
+              <div className="col-span-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    statusStyle[d.status]
+                  }`}
+                >
+                  {statusLabel[d.status]}
+                </span>
+              </div>
+              <div className="col-span-2 text-right">
+                <button
+                  onClick={() => remove(d.id)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-rose-500 transition hover:bg-rose-50"
+                >
+                  Xóa
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

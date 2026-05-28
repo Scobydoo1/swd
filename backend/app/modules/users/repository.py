@@ -1,0 +1,37 @@
+from sqlalchemy.orm import Session
+
+from app.modules.users.models import Role, User
+
+
+class UserRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get(self, user_id: int) -> User | None:
+        return self.db.query(User).filter(User.id == user_id).first()
+
+    def get_by_email(self, email: str) -> User | None:
+        return self.db.query(User).filter(User.email == email).first()
+
+    def list(self) -> list[User]:
+        return self.db.query(User).order_by(User.created_at.desc()).all()
+
+    def create(
+        self, email: str, password_hash: str, full_name: str, role: Role
+    ) -> User:
+        user = User(
+            email=email,
+            password_hash=password_hash,
+            full_name=full_name,
+            role=role,
+        )
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def update_role(self, user: User, role: Role) -> User:
+        user.role = role
+        self.db.commit()
+        self.db.refresh(user)
+        return user

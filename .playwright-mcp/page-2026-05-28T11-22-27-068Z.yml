@@ -1,0 +1,50 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: E
+      - generic [ref=e7]:
+        - paragraph [ref=e8]: EduRAG
+        - paragraph [ref=e9]: Trợ lý học tập AI
+    - navigation [ref=e10]:
+      - link "💬 Hỏi đáp" [ref=e11] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e12]: 💬
+        - text: Hỏi đáp
+      - link "📚 Tài liệu" [ref=e13] [cursor=pointer]:
+        - /url: /documents
+        - generic [ref=e14]: 📚
+        - text: Tài liệu
+      - link "👥 Người dùng" [ref=e15] [cursor=pointer]:
+        - /url: /admin
+        - generic [ref=e16]: 👥
+        - text: Người dùng
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]: Q
+        - generic [ref=e20]:
+          - paragraph [ref=e21]: Quản trị viên
+          - generic [ref=e22]: Quản trị viên
+      - button "Đăng xuất" [ref=e23] [cursor=pointer]
+  - main [ref=e24]:
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - button "＋ Cuộc trò chuyện mới" [ref=e28] [cursor=pointer]
+        - paragraph [ref=e29]: Lịch sử
+        - paragraph [ref=e31]: Chưa có cuộc trò chuyện nào.
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - generic [ref=e34]:
+            - heading "Hỏi đáp tài liệu" [level=1] [ref=e35]
+            - paragraph [ref=e36]: Câu trả lời chỉ dựa trên tài liệu đã index
+          - combobox [ref=e37]
+        - generic [ref=e39]:
+          - generic [ref=e40]: 🎓
+          - heading "Bắt đầu hỏi đáp" [level=2] [ref=e41]
+          - paragraph [ref=e42]: Đặt câu hỏi về nội dung tài liệu môn học. Trợ lý sẽ trả lời kèm trích dẫn nguồn.
+          - generic [ref=e43]:
+            - generic [ref=e44]: Use case là gì?
+            - generic [ref=e45]: Phân biệt aggregation và composition
+            - generic [ref=e46]: Observer pattern hoạt động như thế nào?
+        - generic [ref=e48]:
+          - textbox "Nhập câu hỏi về nội dung tài liệu…" [ref=e49]
+          - button "➤" [disabled] [ref=e50]
