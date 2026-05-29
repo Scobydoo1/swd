@@ -14,8 +14,9 @@ Yêu cầu: đã seed môn học và index tài liệu vào ChromaDB trước đ
 import argparse
 import json
 import os
+import time
 
-from app.database import SessionLocal
+from app.database import SessionLocal, init_db
 from app.llm.client import LlmClient
 from app.modules.chat.schemas import ChatRequest
 from app.modules.chat.service import ChatService
@@ -53,9 +54,16 @@ def judge(llm: LlmClient, question: str, answer: str, truth: str) -> dict:
         return {"score": 0.0, "verdict": "incorrect", "reason": "Không parse được"}
 
 
-def run(course_id: int | None):
+def run(course_id: int | None, limit: int | None = None, delay: float = 0.0):
+    # Đăng ký toàn bộ model lên Base trước khi tạo session (giải FK courses, …).
+    init_db()
+
     with open(os.path.join(HERE, "test_set.json"), encoding="utf-8") as f:
         test_set = json.load(f)
+
+    items = test_set["items"]
+    if limit:
+        items = items[:limit]
 
     db = SessionLocal()
     chat = ChatService(db)
@@ -64,7 +72,10 @@ def run(course_id: int | None):
     total = 0.0
 
     try:
-        for item in test_set["items"]:
+        for idx, item in enumerate(items):
+            # Throttle để không vượt quota/phút của free tier.
+            if delay and idx > 0:
+                time.sleep(delay)
             resp = chat.answer(
                 ChatRequest(question=item["question"], course_id=course_id),
                 user_id=None,
@@ -80,15 +91,27 @@ def run(course_id: int | None):
                     **verdict,
                 }
             )
-            print(f"[{item['id']:2}] {verdict['verdict']:9} ({verdict['score']}) - {item['question'][:50]}")
+            print(f"[{item['id']:2}] {verdict['verdict']:9} ({verdict['score']}) - {item['question'][:50]}", flush=True)
+            # Lưu tiến độ sau mỗi câu để không mất kết quả nếu bị gián đoạn.
+            _save(results, total)
     finally:
         db.close()
 
+    summary = _save(results, total)
+    n = summary["total_questions"]
+
+    print("\n===== KẾT QUẢ =====")
+    print(f"Số câu: {n}")
+    print(f"Điểm trung bình (accuracy): {summary['average_score']:.2%}")
+    print(f"Correct: {summary['correct']} | Partial: {summary['partial']} | Incorrect: {summary['incorrect']}")
+    print("Chi tiết lưu tại tests/eval_result.json")
+
+
+def _save(results: list, total: float) -> dict:
     n = len(results)
-    accuracy = total / n if n else 0
     summary = {
         "total_questions": n,
-        "average_score": round(accuracy, 4),
+        "average_score": round(total / n, 4) if n else 0,
         "correct": sum(1 for r in results if r["verdict"] == "correct"),
         "partial": sum(1 for r in results if r["verdict"] == "partial"),
         "incorrect": sum(1 for r in results if r["verdict"] == "incorrect"),
@@ -96,16 +119,15 @@ def run(course_id: int | None):
     }
     with open(os.path.join(HERE, "eval_result.json"), "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
-
-    print("\n===== KẾT QUẢ =====")
-    print(f"Số câu: {n}")
-    print(f"Điểm trung bình (accuracy): {accuracy:.2%}")
-    print(f"Correct: {summary['correct']} | Partial: {summary['partial']} | Incorrect: {summary['incorrect']}")
-    print("Chi tiết lưu tại tests/eval_result.json")
+    return summary
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--course-id", type=int, default=None)
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Chỉ chạy N câu đầu (vd: --limit 5 để thử nhanh)")
+    parser.add_argument("--delay", type=float, default=0.0,
+                        help="Giây nghỉ giữa mỗi câu, tránh vượt quota free tier (vd: --delay 30)")
     args = parser.parse_args()
-    run(args.course_id)
+    run(args.course_id, limit=args.limit, delay=args.delay)
