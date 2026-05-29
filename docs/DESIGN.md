@@ -240,7 +240,7 @@ sequenceDiagram
     participant S as DocumentService
     participant P as Parser (Strategy)
     participant RAG as RagFacade
-    participant E as OpenAI Embedding
+    participant E as Google Embedding
     participant C as ChromaDB
     participant DB as SQLite
 
@@ -272,9 +272,9 @@ sequenceDiagram
     participant R as ChatRouter
     participant S as ChatService
     participant RAG as RagFacade
-    participant E as OpenAI Embedding
+    participant E as Google Embedding
     participant C as ChromaDB
-    participant LLM as OpenAI GPT-4o-mini
+    participant LLM as Google Gemini 2.5 Flash
     participant DB as SQLite
 
     U->>FE: Nhập câu hỏi
@@ -326,7 +326,7 @@ graph TB
 
         subgraph Shared["Shared Services"]
             RAG[rag: Embedder + Retriever + VectorStore Facade]
-            LLMW[llm: OpenAI client]
+            LLMW[llm: Google Gemini client]
         end
     end
 
@@ -336,7 +336,7 @@ graph TB
     end
 
     subgraph External["☁️ External"]
-        OPENAI[OpenAI API]
+        GEMINI[Google Gemini API]
     end
 
     Client -->|REST /api| API
@@ -350,8 +350,8 @@ graph TB
     COURSES --> SQLITE
     CHAT --> SQLITE
     RAG --> CHROMA
-    RAG --> OPENAI
-    LLMW --> OPENAI
+    RAG --> GEMINI
+    LLMW --> GEMINI
 ```
 
 ---
@@ -389,7 +389,7 @@ graph LR
     Browser[Trình duyệt] -->|HTTPS| Static[React build / Static host]
     Browser -->|REST API| FastAPI[FastAPI process]
     FastAPI --> Files[(File system:<br/>app.db + chroma/)]
-    FastAPI -->|HTTPS| OpenAI[OpenAI API]
+    FastAPI -->|HTTPS| GEMINI[Google Gemini API]
 ```
 
 Toàn bộ backend chạy trong **một process** (đúng tinh thần Modular Monolith). Dữ liệu lưu local (SQLite file + ChromaDB persistent dir). Có thể đóng gói Docker 1 container backend + 1 static frontend.

@@ -60,8 +60,8 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 |-------|-----------|---------|
 | Frontend | **React** (Vite + TypeScript) | UI đẹp, bắt mắt. Tailwind CSS + component library |
 | Backend | **Python 3.11+ / FastAPI** | Modular Monolith |
-| LLM | **OpenAI GPT-4o-mini** | Chat completion |
-| Embedding | **OpenAI text-embedding-3-small** | Tạo vector |
+| LLM | **Google Gemini** (gemini-2.5-flash) | Chat completion |
+| Embedding | **Google gemini-embedding-001** | Tạo vector |
 | Vector Store | **ChromaDB** (embedded/local) | Lưu & search vector |
 | Metadata DB | **SQLite** (qua SQLAlchemy) | Tài liệu, phiên chat, lịch sử |
 | RAG framework | **LangChain** (loaders, splitters, chains) | Chunk, retrieve, orchestrate |
@@ -116,7 +116,7 @@ backend/
 │   │   │   └── schemas.py
 │   │   │
 │   │   ├── rag/                 # MODULE: RAG core (dùng chung)
-│   │   │   ├── embedder.py      # OpenAI embedding wrapper
+│   │   │   ├── embedder.py      # Google embedding wrapper
 │   │   │   ├── vector_store.py  # ChromaDB wrapper (add/query)
 │   │   │   └── retriever.py     # Similarity search + filter theo môn/chương
 │   │   │
@@ -126,7 +126,7 @@ backend/
 │   │       ├── repository.py
 │   │       └── models.py        # Course, Chapter
 │   │
-│   └── llm/                     # OpenAI client wrapper (chat + embedding)
+│   └── llm/                     # Google Gemini client wrapper (chat + embedding)
 │
 ├── data/
 │   ├── app.db                   # SQLite
@@ -161,7 +161,7 @@ frontend/
 - Router chỉ điều phối HTTP ↔ Service. Không chứa logic nghiệp vụ.
 - Service chứa logic, gọi Repository và RAG module.
 - Repository là lớp duy nhất chạm DB.
-- Module `rag` và `llm` là shared service — module khác inject vào dùng, không tự dựng OpenAI client riêng.
+- Module `rag` và `llm` là shared service — module khác inject vào dùng, không tự dựng Gemini client riêng.
 
 ---
 
@@ -171,7 +171,7 @@ frontend/
 1. Nhận file → lưu metadata `Document` (SQLite, status=PROCESSING).
 2. Parse file → text (parsers.py).
 3. Chunk text (RecursiveCharacterTextSplitter, ~800 token, overlap ~100).
-4. Embed từng chunk (OpenAI).
+4. Embed từng chunk (Google text-embedding-004).
 5. Lưu vector vào ChromaDB kèm metadata: `{document_id, course_id, chapter, chunk_index, source_text, page}`.
 6. Update `Document.status = INDEXED`.
 
@@ -235,7 +235,7 @@ Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để g
 **Backend (Python):**
 - Format: `black` + `isort`. Lint: `ruff`.
 - Pydantic v2 cho schema. Type hints bắt buộc.
-- Async cho IO (FastAPI endpoints, OpenAI calls).
+- Async cho IO (FastAPI endpoints, Gemini API calls).
 - Không hardcode secret — đọc từ `.env` qua `config.py`.
 
 **Frontend (React):**
@@ -257,7 +257,9 @@ cd backend && python tests/evaluate.py
 
 **Env (`.env`):**
 ```
-OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AIza...
+GOOGLE_CHAT_MODEL=gemini-2.5-flash
+GOOGLE_EMBED_MODEL=gemini-embedding-001
 CHROMA_DIR=./data/chroma
 DATABASE_URL=sqlite:///./data/app.db
 ```

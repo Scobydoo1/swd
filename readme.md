@@ -20,7 +20,7 @@ Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and So
 |-------|-----------|
 | Frontend | React + Vite + TypeScript + Tailwind CSS |
 | Backend | Python + FastAPI |
-| LLM / Embedding | OpenAI (gpt-4o-mini / text-embedding-3-small) |
+| LLM / Embedding | Google Gemini (gemini-2.5-flash / gemini-embedding-001) |
 | Vector store | ChromaDB |
 | Metadata DB | SQLite |
 
@@ -34,7 +34,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate   |   macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env        # rồi điền OPENAI_API_KEY
+cp .env.example .env        # rồi điền GOOGLE_API_KEY
 python seed.py              # tạo 3 user demo + môn học demo
 uvicorn app.main:app --reload --port 8000
 ```

@@ -6,9 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    openai_api_key: str = ""
-    openai_chat_model: str = "gpt-4o-mini"
-    openai_embed_model: str = "text-embedding-3-small"
+    google_api_key: str = ""
+    google_chat_model: str = "gemini-2.0-flash"
+    google_embed_model: str = "text-embedding-004"
 
     chroma_dir: str = "./data/chroma"
     database_url: str = "sqlite:///./data/app.db"

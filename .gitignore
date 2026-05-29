@@ -3,9 +3,13 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+env/
 backend/data/
 backend/.env
+backend/.env.*
+!backend/.env.example
 backend/tests/eval_result.json
+*.tsbuildinfo
 
 # Node
 node_modules/
