@@ -1,24 +1,33 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Hanken Grotesk", "system-ui", "sans-serif"],
+        display: ["Bricolage Grotesque", "Hanken Grotesk", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
-        brand: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          200: "#c7d2fe",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
-        },
+        bg: "var(--bg)",
+        surface: "var(--surface)",
+        "surface-2": "var(--surface-2)",
+        sidebar: "var(--sidebar)",
+        ink: "var(--ink)",
+        "ink-soft": "var(--ink-soft)",
+        "ink-faint": "var(--ink-faint)",
+        line: "var(--line)",
+        "line-soft": "var(--line-soft)",
+        accent: "var(--accent)",
+        danger: "var(--danger)",
+      },
+      borderRadius: {
+        maple: "var(--radius)",
+      },
+      boxShadow: {
+        maple: "var(--shadow)",
+        "maple-sm": "var(--shadow-sm)",
       },
       keyframes: {
         "fade-in": {

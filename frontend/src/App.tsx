@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { ChatSessionProvider } from "./chat/ChatSessionContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AdminPage } from "./pages/AdminPage";
 import { ChatPage } from "./pages/ChatPage";
@@ -10,7 +11,7 @@ function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading)
     return (
-      <div className="flex h-screen items-center justify-center text-brand-600">
+      <div className="flex h-screen items-center justify-center text-accent">
         Đang tải…
       </div>
     );
@@ -25,7 +26,9 @@ export default function App() {
         path="/"
         element={
           <Protected>
-            <AppLayout />
+            <ChatSessionProvider>
+              <AppLayout />
+            </ChatSessionProvider>
           </Protected>
         }
       >

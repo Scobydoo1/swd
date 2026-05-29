@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useTheme } from "../theme/ThemeContext";
+import { IconMaple, IconMoon, IconSun } from "../components/Icons";
 import type { Role } from "../types";
 
 export function LoginPage() {
   const { user, login, register } = useAuth();
+  const { dark, toggle } = useTheme();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -32,36 +35,50 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-900 p-4">
-      <div className="grid w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl md:grid-cols-2">
-        <div className="hidden flex-col justify-between bg-gradient-to-br from-brand-500 to-brand-800 p-10 text-white md:flex">
+    <div className="flex min-h-screen items-center justify-center bg-bg p-4">
+      <button
+        onClick={toggle}
+        className="absolute right-5 top-5 grid h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink"
+        title="Đổi giao diện"
+      >
+        {dark ? <IconSun size={19} /> : <IconMoon size={19} />}
+      </button>
+
+      <div className="grid w-full max-w-4xl overflow-hidden rounded-[28px] border border-line bg-surface shadow-maple md:grid-cols-2">
+        {/* Brand panel */}
+        <div
+          className="hidden flex-col justify-between p-10 text-white md:flex"
+          style={{
+            background:
+              "linear-gradient(150deg, var(--accent), color-mix(in oklab, var(--accent) 60%, #6b3318))",
+          }}
+        >
           <div>
-            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/20 text-2xl font-extrabold backdrop-blur">
-              E
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/20 backdrop-blur">
+              <IconMaple size={30} />
             </div>
-            <h1 className="mt-8 text-3xl font-extrabold leading-tight">
-              EduRAG
+            <h1 className="mt-8 font-display text-3xl font-bold leading-tight">
+              Maple 🍁
             </h1>
-            <p className="mt-3 text-brand-100">
-              Trợ lý học tập AI — hỏi đáp dựa trên tài liệu môn học, có trích
-              dẫn nguồn chính xác.
+            <p className="mt-3 text-white/80">
+              Trợ lý học tập AI — hỏi đáp dựa trên tài liệu môn học, có trích dẫn
+              nguồn chính xác.
             </p>
           </div>
-          <ul className="space-y-3 text-sm text-brand-100">
+          <ul className="space-y-3 text-sm text-white/85">
             <li className="flex items-center gap-2">📚 Quản lý tài liệu PDF / DOCX / Slide</li>
             <li className="flex items-center gap-2">🔍 Trả lời trong phạm vi tài liệu</li>
             <li className="flex items-center gap-2">💬 Lịch sử hội thoại theo phiên</li>
           </ul>
         </div>
 
+        {/* Form panel */}
         <div className="p-8 sm:p-10">
-          <h2 className="text-2xl font-extrabold text-slate-800">
+          <h2 className="font-display text-2xl font-bold text-ink">
             {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
           </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            {mode === "login"
-              ? "Chào mừng quay lại!"
-              : "Điền thông tin để bắt đầu."}
+          <p className="mt-1 text-sm text-ink-faint">
+            {mode === "login" ? "Chào mừng quay lại!" : "Điền thông tin để bắt đầu."}
           </p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
@@ -89,13 +106,13 @@ export function LoginPage() {
             />
             {mode === "register" && (
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-600">
+                <label className="mb-1.5 block text-sm font-medium text-ink-soft">
                   Vai trò
                 </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+                  className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
                 >
                   <option value="USER">Sinh viên</option>
                   <option value="LECTURER">Giảng viên</option>
@@ -105,34 +122,35 @@ export function LoginPage() {
             )}
 
             {error && (
-              <p className="rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">
+              <p className="rounded-xl bg-danger/10 px-4 py-2.5 text-sm text-danger">
                 {error}
               </p>
             )}
 
             <button
               disabled={busy}
-              className="w-full rounded-xl bg-brand-600 py-3 font-semibold text-white shadow-lg shadow-brand-600/30 transition hover:bg-brand-700 disabled:opacity-60"
+              className="w-full rounded-xl py-3 font-semibold text-white shadow-maple-sm transition hover:brightness-105 disabled:opacity-60"
+              style={{ background: "var(--accent)" }}
             >
               {busy ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Đăng ký"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p className="mt-6 text-center text-sm text-ink-faint">
             {mode === "login" ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
             <button
               onClick={() => {
                 setMode(mode === "login" ? "register" : "login");
                 setError("");
               }}
-              className="font-semibold text-brand-600 hover:underline"
+              className="font-semibold text-accent hover:underline"
             >
               {mode === "login" ? "Đăng ký ngay" : "Đăng nhập"}
             </button>
           </p>
 
           {mode === "login" && (
-            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-400">
+            <div className="mt-4 rounded-xl bg-surface-2 p-3 text-xs text-ink-faint">
               Demo: admin@demo.com · lecturer@demo.com · student@demo.com
               <br />
               Mật khẩu: admin123 / lecturer123 / student123
@@ -159,7 +177,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-600">
+      <label className="mb-1.5 block text-sm font-medium text-ink-soft">
         {label}
       </label>
       <input
@@ -168,7 +186,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         required
-        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+        className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none transition focus:border-accent placeholder:text-ink-faint"
       />
     </div>
   );

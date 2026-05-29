@@ -1,7 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { MessageBubble } from "../components/chat/MessageBubble";
+import {
+  IconClose,
+  IconFile,
+  IconMaple,
+  IconMic,
+  IconMoon,
+  IconPaperclip,
+  IconSend,
+  IconStop,
+  IconSun,
+} from "../components/Icons";
+import { useTheme } from "../theme/ThemeContext";
+import { useChatSessions } from "../chat/ChatSessionContext";
 import type {
+  Attachment,
   ChatResponse,
   ChatSession,
   Course,
@@ -9,15 +23,26 @@ import type {
   SessionDetail,
 } from "../types";
 
+const SUGGESTED_PROMPTS = [
+  { icon: "📐", title: "Use case là gì?", sub: "Giải thích khái niệm và vai trò trong mô hình hóa." },
+  { icon: "🔗", title: "Aggregation vs Composition", sub: "Phân biệt hai loại quan hệ trong UML." },
+  { icon: "🧩", title: "Observer Pattern", sub: "Mẫu thiết kế này hoạt động như thế nào?" },
+  { icon: "🏛️", title: "Kiến trúc phân lớp", sub: "Mô tả layered software architecture." },
+];
+
+let _idc = 0;
+const uid = () => Date.now() * 1000 + ++_idc;
+
 export function ChatPage() {
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const { dark, toggle } = useTheme();
+  const { sessions, setSessions, activeId, setActiveId, register } =
+    useChatSessions();
   const [courses, setCourses] = useState<Course[]>([]);
-  const [activeId, setActiveId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [courseId, setCourseId] = useState<number | null>(null);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [streaming, setStreaming] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stopRef = useRef(false);
 
   const loadSessions = () =>
     api.get<ChatSession[]>("/sessions").then((r) => setSessions(r.data));
@@ -28,11 +53,13 @@ export function ChatPage() {
       setCourses(r.data);
       if (r.data[0]) setCourseId(r.data[0].id);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, streaming]);
 
   const openSession = async (id: number) => {
     const { data } = await api.get<SessionDetail>(`/sessions/${id}`);
@@ -46,203 +73,313 @@ export function ChatPage() {
     setMessages([]);
   };
 
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || sending) return;
-    const question = input.trim();
-    setInput("");
+  // let the sidebar (AppLayout) drive openSession / newChat
+  useEffect(() => {
+    register({ openSession, newChat });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reveal the real backend answer word-by-word for a lively feel.
+  const streamReply = useCallback((full: string, citations: Message["citations"]) => {
+    const botId = uid();
     setMessages((m) => [
       ...m,
-      {
-        id: Date.now(),
+      { id: botId, role: "assistant", content: "", created_at: "", citations: [], streaming: true },
+    ]);
+    setStreaming(true);
+    stopRef.current = false;
+    const words = full.split(/(\s+)/);
+    let idx = 0;
+    const tick = () => {
+      if (stopRef.current) {
+        setMessages((m) =>
+          m.map((x) =>
+            x.id === botId ? { ...x, content: full, citations, streaming: false } : x
+          )
+        );
+        setStreaming(false);
+        return;
+      }
+      idx += Math.random() > 0.6 ? 2 : 1;
+      const slice = words.slice(0, idx).join("");
+      setMessages((m) => m.map((x) => (x.id === botId ? { ...x, content: slice } : x)));
+      if (idx < words.length) {
+        setTimeout(tick, 18 + Math.random() * 26);
+      } else {
+        setMessages((m) =>
+          m.map((x) =>
+            x.id === botId ? { ...x, content: full, citations, streaming: false } : x
+          )
+        );
+        setStreaming(false);
+      }
+    };
+    setTimeout(tick, 350);
+  }, []);
+
+  const send = useCallback(
+    async (text: string, atts: Attachment[]) => {
+      const question = text.trim();
+      if (!question && atts.length === 0) return;
+      const userMsg: Message = {
+        id: uid(),
         role: "user",
-        content: question,
+        content: question || "(tệp đính kèm)",
         created_at: "",
         citations: [],
-      },
-    ]);
-    setSending(true);
-    try {
-      const { data } = await api.post<ChatResponse>("/chat", {
-        question,
-        session_id: activeId,
-        course_id: courseId,
-      });
+        attachments: atts.length ? atts : undefined,
+      };
+      setMessages((m) => [...m, userMsg]);
+      // optimistic typing placeholder while we wait for the backend
+      const placeholderId = uid();
       setMessages((m) => [
         ...m,
-        {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: data.answer,
-          created_at: "",
-          citations: data.citations,
-        },
+        { id: placeholderId, role: "assistant", content: "", created_at: "", citations: [], streaming: true },
       ]);
-      if (!activeId) {
-        setActiveId(data.session_id);
-        loadSessions();
+      setStreaming(true);
+      try {
+        const { data } = await api.post<ChatResponse>("/chat", {
+          question,
+          session_id: activeId,
+          course_id: courseId,
+        });
+        // drop placeholder, then stream the real answer
+        setMessages((m) => m.filter((x) => x.id !== placeholderId));
+        setStreaming(false);
+        streamReply(data.answer, data.citations);
+        if (!activeId) {
+          setActiveId(data.session_id);
+          loadSessions();
+        }
+      } catch {
+        setMessages((m) =>
+          m.map((x) =>
+            x.id === placeholderId
+              ? {
+                  ...x,
+                  content: "Xin lỗi, đã có lỗi khi xử lý câu hỏi của bạn.",
+                  streaming: false,
+                }
+              : x
+          )
+        );
+        setStreaming(false);
       }
-    } catch {
-      setMessages((m) => [
-        ...m,
-        {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: "Xin lỗi, đã có lỗi khi xử lý câu hỏi của bạn.",
-          created_at: "",
-          citations: [],
-        },
-      ]);
-    } finally {
-      setSending(false);
+    },
+    [activeId, courseId, streamReply]
+  );
+
+  const regenerate = useCallback(
+    (botMsg: Message) => {
+      const i = messages.findIndex((m) => m.id === botMsg.id);
+      const prevUser = [...messages.slice(0, i)].reverse().find((m) => m.role === "user");
+      setMessages((m) => m.filter((x) => x.id !== botMsg.id));
+      if (prevUser) send(prevUser.content, []);
+    },
+    [messages, send]
+  );
+
+  const stop = () => {
+    stopRef.current = true;
+  };
+
+  const activeTitle = activeId
+    ? sessions.find((c) => c.id === activeId)?.title || "Maple"
+    : "Maple";
+
+  return (
+    <div className="main flex h-full flex-col bg-bg">
+      <header className="topbar sticky top-0 z-[5] flex h-[58px] flex-none items-center justify-between border-b border-line-soft px-4 backdrop-blur"
+        style={{ background: "color-mix(in oklab, var(--bg) 85%, transparent)" }}>
+        <div className="flex items-center gap-2">
+          <span className="ml-1 text-base font-semibold tracking-tight">{activeTitle}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {courses.length > 0 && (
+            <select
+              value={courseId ?? ""}
+              onChange={(e) => setCourseId(Number(e.target.value))}
+              className="rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none transition focus:border-accent/60"
+            >
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            className="grid h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink"
+            title="Đổi giao diện"
+            onClick={toggle}
+          >
+            {dark ? <IconSun size={19} /> : <IconMoon size={19} />}
+          </button>
+        </div>
+      </header>
+
+      <div className="chat-scroll flex-1 overflow-y-auto scroll-smooth" ref={scrollRef}>
+        {messages.length === 0 ? (
+          <Welcome onPrompt={(p) => send(p, [])} />
+        ) : (
+          <div className="thread mx-auto flex max-w-[760px] flex-col gap-[26px] px-7 pb-6 pt-[30px]">
+            {messages.map((m) => (
+              <MessageBubble key={m.id} message={m} onRegenerate={regenerate} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Composer onSend={send} streaming={streaming} onStop={stop} />
+    </div>
+  );
+}
+
+function Welcome({ onPrompt }: { onPrompt: (p: string) => void }) {
+  const hour = new Date().getHours();
+  const greet = hour < 11 ? "Chào buổi sáng" : hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
+  return (
+    <div className="welcome">
+      <div className="welcome-mark">
+        <IconMaple size={52} />
+      </div>
+      <h1 className="welcome-title">{greet}! Mình là Maple 🍁</h1>
+      <p className="welcome-sub">
+        Mình trả lời dựa trên tài liệu môn học đã được index, kèm trích dẫn nguồn. Bắt đầu từ đâu nhỉ?
+      </p>
+      <div className="prompts">
+        {SUGGESTED_PROMPTS.map((p, i) => (
+          <button
+            key={i}
+            className="prompt-card"
+            onClick={() => onPrompt(`${p.title} ${p.sub}`)}
+          >
+            <span className="prompt-emoji">{p.icon}</span>
+            <span className="prompt-text">
+              <strong>{p.title}</strong>
+              <span>{p.sub}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Composer({
+  onSend,
+  streaming,
+  onStop,
+}: {
+  onSend: (text: string, atts: Attachment[]) => void;
+  streaming: boolean;
+  onStop: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [atts, setAtts] = useState<Attachment[]>([]);
+  const [rec, setRec] = useState(false);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const grow = () => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
+  };
+  useEffect(grow, [text]);
+
+  const submit = () => {
+    if (streaming) return;
+    if (!text.trim() && atts.length === 0) return;
+    onSend(text.trim(), atts);
+    setText("");
+    setAtts([]);
+    requestAnimationFrame(() => {
+      if (taRef.current) taRef.current.style.height = "auto";
+    });
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submit();
     }
   };
 
-  return (
-    <div className="flex h-full">
-      {/* Sessions sidebar */}
-      <div className="flex w-64 flex-col border-r border-slate-200 bg-white">
-        <div className="p-4">
-          <button
-            onClick={newChat}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700"
-          >
-            ＋ Cuộc trò chuyện mới
-          </button>
-        </div>
-        <p className="px-4 pb-1 text-xs font-semibold uppercase text-slate-400">
-          Lịch sử
-        </p>
-        <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
-          {sessions.length === 0 && (
-            <p className="px-2 py-4 text-center text-xs text-slate-400">
-              Chưa có cuộc trò chuyện nào.
-            </p>
-          )}
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => openSession(s.id)}
-              className={`block w-full truncate rounded-lg px-3 py-2 text-left text-sm transition ${
-                activeId === s.id
-                  ? "bg-brand-50 font-medium text-brand-700"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {s.title}
-            </button>
-          ))}
-        </div>
-      </div>
+  const onFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])].map((f) => ({
+      name: f.name,
+      size: f.size,
+    }));
+    setAtts((a) => [...a, ...files]);
+    e.target.value = "";
+  };
 
-      {/* Chat window */}
-      <div className="flex flex-1 flex-col bg-slate-50">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-          <div>
-            <h1 className="text-lg font-bold text-slate-800">Hỏi đáp tài liệu</h1>
-            <p className="text-xs text-slate-400">
-              Câu trả lời chỉ dựa trên tài liệu đã index
-            </p>
-          </div>
-          <select
-            value={courseId ?? ""}
-            onChange={(e) => setCourseId(Number(e.target.value))}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
-          >
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+  return (
+    <div className="composer-wrap">
+      <div className="composer">
+        {atts.length > 0 && (
+          <div className="comp-atts">
+            {atts.map((a, i) => (
+              <div key={i} className="att-chip">
+                <IconFile size={16} />
+                <span>{a.name}</span>
+                <button onClick={() => setAtts((x) => x.filter((_, j) => j !== i))}>
+                  <IconClose size={13} />
+                </button>
+              </div>
             ))}
-          </select>
-        </header>
-
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-          {messages.length === 0 && <EmptyState />}
-          {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} />
-          ))}
-          {sending && <TypingIndicator />}
-          <div ref={bottomRef} />
-        </div>
-
-        <form
-          onSubmit={send}
-          className="border-t border-slate-200 bg-white px-6 py-4"
-        >
-          <div className="flex items-end gap-3">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send(e);
-                }
-              }}
-              rows={1}
-              placeholder="Nhập câu hỏi về nội dung tài liệu…"
-              className="max-h-32 flex-1 resize-none rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-            <button
-              disabled={sending || !input.trim()}
-              className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30 transition hover:bg-brand-700 disabled:opacity-40"
-            >
-              ➤
-            </button>
           </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState() {
-  const samples = [
-    "Use case là gì?",
-    "Phân biệt aggregation và composition",
-    "Observer pattern hoạt động như thế nào?",
-  ];
-  return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 text-3xl shadow-xl shadow-brand-600/30">
-        🎓
-      </div>
-      <h2 className="mt-5 text-xl font-bold text-slate-700">
-        Bắt đầu hỏi đáp
-      </h2>
-      <p className="mt-1 max-w-md text-sm text-slate-400">
-        Đặt câu hỏi về nội dung tài liệu môn học. Trợ lý sẽ trả lời kèm trích
-        dẫn nguồn.
-      </p>
-      <div className="mt-6 flex flex-wrap justify-center gap-2">
-        {samples.map((s) => (
-          <span
-            key={s}
-            className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs text-slate-500"
+        )}
+        <div className="comp-row">
+          <button
+            className="comp-icon"
+            title="Đính kèm"
+            onClick={() => fileRef.current?.click()}
           >
-            {s}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TypingIndicator() {
-  return (
-    <div className="flex animate-fade-in gap-3">
-      <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
-        AI
-      </div>
-      <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-slate-100 bg-white px-4 py-4">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="h-2 w-2 animate-bounce rounded-full bg-brand-400"
-            style={{ animationDelay: `${i * 0.15}s` }}
+            <IconPaperclip size={20} />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            hidden
+            onChange={onFiles}
           />
-        ))}
+          <textarea
+            ref={taRef}
+            rows={1}
+            value={text}
+            placeholder="Nhắn cho Maple…"
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKey}
+          />
+          <button
+            className={`comp-icon ${rec ? "rec" : ""}`}
+            title="Giọng nói"
+            onClick={() => setRec((r) => !r)}
+          >
+            <IconMic size={20} />
+          </button>
+          {streaming ? (
+            <button className="comp-send stop" onClick={onStop} title="Dừng">
+              <IconStop size={18} />
+            </button>
+          ) : (
+            <button
+              className="comp-send"
+              onClick={submit}
+              disabled={!text.trim() && atts.length === 0}
+              title="Gửi"
+            >
+              <IconSend size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="comp-hint">
+        Maple chỉ trả lời trong phạm vi tài liệu. Hãy kiểm tra các thông tin quan trọng.
       </div>
     </div>
   );

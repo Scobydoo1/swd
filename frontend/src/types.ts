@@ -54,12 +54,19 @@ export interface ChatSession {
   created_at: string;
 }
 
+export interface Attachment {
+  name: string;
+  size?: number;
+}
+
 export interface Message {
   id: number;
   role: "user" | "assistant";
   content: string;
   created_at: string;
   citations: Citation[];
+  attachments?: Attachment[];
+  streaming?: boolean;
 }
 
 export interface SessionDetail extends ChatSession {

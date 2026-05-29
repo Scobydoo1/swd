@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { IconTrash, IconUpload } from "../components/Icons";
 import type { Course, Document } from "../types";
 
 const statusStyle: Record<string, string> = {
-  INDEXED: "bg-emerald-100 text-emerald-700",
-  PROCESSING: "bg-amber-100 text-amber-700",
-  FAILED: "bg-rose-100 text-rose-700",
+  INDEXED: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  PROCESSING: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  FAILED: "bg-danger/15 text-danger",
 };
 const statusLabel: Record<string, string> = {
   INDEXED: "Đã index",
@@ -65,20 +66,20 @@ export function DocumentsPage() {
     <div className="h-full overflow-y-auto p-8">
       <div className="mx-auto max-w-5xl">
         <header className="mb-6">
-          <h1 className="text-2xl font-extrabold text-slate-800">
+          <h1 className="font-display text-2xl font-bold text-ink">
             Quản lý tài liệu
           </h1>
-          <p className="text-sm text-slate-400">
-            Upload tài liệu bài giảng — hệ thống tự động chunk & embed.
+          <p className="text-sm text-ink-faint">
+            Upload tài liệu bài giảng — hệ thống tự động chunk &amp; embed.
           </p>
         </header>
 
         <div className="mb-6 flex items-center gap-3">
-          <label className="text-sm font-medium text-slate-600">Môn học:</label>
+          <label className="text-sm font-medium text-ink-soft">Môn học:</label>
           <select
             value={courseId ?? ""}
             onChange={(e) => setCourseId(Number(e.target.value))}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+            className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           >
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
@@ -96,7 +97,7 @@ export function DocumentsPage() {
             if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
           }}
           onClick={() => fileRef.current?.click()}
-          className="mb-8 cursor-pointer rounded-3xl border-2 border-dashed border-brand-200 bg-gradient-to-br from-brand-50/50 to-white p-10 text-center transition hover:border-brand-400 hover:bg-brand-50"
+          className="mb-8 cursor-pointer rounded-[24px] border-2 border-dashed border-line bg-surface p-10 text-center transition hover:border-accent/60 hover:bg-surface-2"
         >
           <input
             ref={fileRef}
@@ -106,17 +107,19 @@ export function DocumentsPage() {
             onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
           />
           {uploading ? (
-            <div className="text-brand-600">
-              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
-              Đang xử lý & index tài liệu…
+            <div className="text-accent">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-line border-t-accent" />
+              Đang xử lý &amp; index tài liệu…
             </div>
           ) : (
             <>
-              <div className="text-4xl">⬆️</div>
-              <p className="mt-3 font-semibold text-slate-700">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-surface-2 text-accent">
+                <IconUpload size={26} />
+              </div>
+              <p className="mt-3 font-semibold text-ink">
                 Kéo thả hoặc bấm để chọn file
               </p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-ink-faint">
                 Hỗ trợ PDF, DOCX, PPTX
               </p>
             </>
@@ -124,51 +127,50 @@ export function DocumentsPage() {
         </div>
 
         {error && (
-          <p className="mb-4 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">
+          <p className="mb-4 rounded-xl bg-danger/10 px-4 py-2.5 text-sm text-danger">
             {error}
           </p>
         )}
 
         {/* Document list */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="grid grid-cols-12 gap-3 border-b border-slate-100 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase text-slate-400">
+        <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
+          <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
             <div className="col-span-6">Tài liệu</div>
             <div className="col-span-2">Chunks</div>
             <div className="col-span-2">Trạng thái</div>
             <div className="col-span-2 text-right">Thao tác</div>
           </div>
           {docs.length === 0 && (
-            <p className="px-5 py-10 text-center text-sm text-slate-400">
+            <p className="px-5 py-10 text-center text-sm text-ink-faint">
               Chưa có tài liệu nào được index.
             </p>
           )}
           {docs.map((d) => (
             <div
               key={d.id}
-              className="grid grid-cols-12 items-center gap-3 border-b border-slate-50 px-5 py-3.5 text-sm transition hover:bg-slate-50/50"
+              className="grid grid-cols-12 items-center gap-3 border-b border-line-soft px-5 py-3.5 text-sm transition last:border-0 hover:bg-surface-2/50"
             >
               <div className="col-span-6 flex items-center gap-3">
                 <span className="text-xl">{typeIcon[d.file_type]}</span>
-                <span className="truncate font-medium text-slate-700">
+                <span className="truncate font-medium text-ink">
                   {d.filename}
                 </span>
               </div>
-              <div className="col-span-2 text-slate-500">{d.num_chunks}</div>
+              <div className="col-span-2 text-ink-soft">{d.num_chunks}</div>
               <div className="col-span-2">
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    statusStyle[d.status]
-                  }`}
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[d.status]}`}
                 >
                   {statusLabel[d.status]}
                 </span>
               </div>
-              <div className="col-span-2 text-right">
+              <div className="col-span-2 flex justify-end">
                 <button
                   onClick={() => remove(d.id)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-rose-500 transition hover:bg-rose-50"
+                  className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint transition hover:bg-danger/10 hover:text-danger"
+                  title="Xóa"
                 >
-                  Xóa
+                  <IconTrash size={16} />
                 </button>
               </div>
             </div>
