@@ -393,3 +393,142 @@ graph LR
 ```
 
 Toàn bộ backend chạy trong **một process** (đúng tinh thần Modular Monolith). Dữ liệu lưu local (SQLite file + ChromaDB persistent dir). Có thể đóng gói Docker 1 container backend + 1 static frontend.
+
+---
+
+## 9. ERD — Lược đồ quan hệ dữ liệu (SQLite)
+
+```mermaid
+erDiagram
+    USER ||--o{ COURSE : "owns (Lecturer)"
+    USER ||--o{ DOCUMENT : uploads
+    USER ||--o{ CHATSESSION : has
+    COURSE ||--o{ CHAPTER : contains
+    COURSE ||--o{ DOCUMENT : groups
+    CHAPTER ||--o{ DOCUMENT : "optional"
+    CHATSESSION ||--o{ MESSAGE : contains
+
+    USER {
+        int id PK
+        string email UK
+        string password_hash
+        string full_name
+        enum role "ADMIN|LECTURER|USER"
+        datetime created_at
+    }
+    COURSE {
+        int id PK
+        string name
+        string description
+        int owner_id FK
+    }
+    CHAPTER {
+        int id PK
+        int course_id FK
+        string title
+        int order
+    }
+    DOCUMENT {
+        int id PK
+        int course_id FK
+        int chapter_id FK "nullable"
+        int uploaded_by FK
+        string filename
+        enum file_type "PDF|DOCX|PPTX"
+        enum status "PROCESSING|INDEXED|FAILED"
+        int num_chunks
+        datetime created_at
+    }
+    CHATSESSION {
+        int id PK
+        int user_id FK
+        string title
+        datetime created_at
+    }
+    MESSAGE {
+        int id PK
+        int session_id FK
+        enum role "user|assistant"
+        string content
+        json citations_json
+        datetime created_at
+    }
+```
+
+> Vector + chunk text **không** lưu trong SQLite mà nằm trong ChromaDB, kèm metadata `{document_id, course_id, chapter, chunk_index, source_text, page}`.
+
+---
+
+## 10. State Diagram — Vòng đời tài liệu (Document)
+
+```mermaid
+stateDiagram-v2
+    [*] --> PROCESSING : upload (lưu metadata)
+    PROCESSING --> INDEXED : parse + chunk + embed thành công
+    PROCESSING --> FAILED : lỗi parse / embed (quota, định dạng)
+    FAILED --> PROCESSING : upload lại
+    INDEXED --> [*] : xóa tài liệu (kèm vector trong ChromaDB)
+    FAILED --> [*] : xóa tài liệu
+```
+
+---
+
+## 11. Activity Diagram — Luồng xử lý câu hỏi (RAG Query)
+
+```mermaid
+flowchart TD
+    A([User gửi câu hỏi]) --> B[Lấy lịch sử hội thoại của phiên]
+    B --> C{Có lịch sử?}
+    C -- Có --> D[Condense: gộp lịch sử + câu hỏi<br/>thành standalone question]
+    C -- Không --> E[Dùng nguyên câu hỏi]
+    D --> F[Embed câu hỏi → query vector]
+    E --> F
+    F --> G[Similarity search ChromaDB<br/>top-k=4, filter theo course_id]
+    G --> H{Có chunk liên quan?}
+    H -- Không --> I[Trả lời: 'Không tìm thấy trong tài liệu']
+    H -- Có --> J[Build prompt:<br/>system + context + history + câu hỏi]
+    J --> K[Gọi Gemini LLM]
+    K --> L[Sinh câu trả lời + gắn citations]
+    L --> M[Lưu user + assistant message vào phiên]
+    I --> M
+    M --> N([Trả về answer + citations cho UI])
+```
+
+---
+
+## 12. Package / Module Diagram (cấu trúc backend)
+
+```mermaid
+graph TD
+    MAIN[app.main<br/>FastAPI app, mount routers, CORS]
+    CONFIG[app.config<br/>Settings từ .env]
+    DB[app.database<br/>SQLAlchemy engine/session]
+    SHARED[app.shared<br/>exceptions, dependencies, require_role]
+
+    subgraph modules
+        AUTH[auth]
+        USERS[users]
+        COURSES[courses]
+        DOCUMENTS[documents]
+        CHAT[chat]
+        RAG[rag]
+    end
+    LLM[app.llm<br/>Gemini client]
+
+    MAIN --> AUTH & USERS & COURSES & DOCUMENTS & CHAT
+    MAIN --> CONFIG
+    AUTH --> USERS
+    AUTH --> SHARED
+    USERS --> DB
+    COURSES --> DB
+    DOCUMENTS --> DB
+    DOCUMENTS --> RAG
+    DOCUMENTS --> SHARED
+    CHAT --> DB
+    CHAT --> RAG
+    CHAT --> LLM
+    CHAT --> SHARED
+    RAG --> LLM
+    RAG --> CONFIG
+    LLM --> CONFIG
+```
