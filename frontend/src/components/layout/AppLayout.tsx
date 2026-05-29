@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { useChatSessions } from "../../chat/ChatSessionContext";
+import type { ChatSession } from "../../types";
 import {
   IconBook,
   IconChat,
   IconLogout,
   IconMaple,
+  IconPin,
   IconPlus,
   IconSearch,
   IconSidebar,
+  IconTrash,
   IconUsers,
 } from "../Icons";
 
@@ -46,10 +50,10 @@ function NavItem({
   );
 }
 
-function groupByTime(sessions: { id: number; title: string; created_at: string }[]) {
+function groupByTime(sessions: ChatSession[]) {
   const now = Date.now();
   const day = 86400000;
-  const groups: Record<string, typeof sessions> = {};
+  const groups: Record<string, ChatSession[]> = {};
   for (const s of sessions) {
     const t = s.created_at ? new Date(s.created_at).getTime() : now;
     const age = now - t;
@@ -64,17 +68,79 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { sessions, activeId, openSession, newChat } = useChatSessions();
+  const { sessions, setSessions, activeId, openSession, newChat } =
+    useChatSessions();
   const [open, setOpen] = useState(true);
   const [q, setQ] = useState("");
 
   const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
   const onChat = location.pathname === "/";
 
+  const togglePin = async (e: React.MouseEvent, s: ChatSession) => {
+    e.stopPropagation();
+    const { data } = await api.patch<ChatSession>(`/sessions/${s.id}`, {
+      pinned: !s.pinned,
+    });
+    setSessions(sessions.map((x) => (x.id === s.id ? data : x)));
+  };
+
+  const removeSession = async (e: React.MouseEvent, s: ChatSession) => {
+    e.stopPropagation();
+    if (!confirm(`Xóa cuộc trò chuyện "${s.title}"?`)) return;
+    await api.delete(`/sessions/${s.id}`);
+    setSessions(sessions.filter((x) => x.id !== s.id));
+    if (s.id === activeId) newChat();
+  };
+
   const filtered = sessions.filter((c) =>
     c.title.toLowerCase().includes(q.toLowerCase())
   );
-  const groups = groupByTime(filtered);
+  const pinned = filtered.filter((c) => c.pinned);
+  const groups = groupByTime(filtered.filter((c) => !c.pinned));
+
+  const renderRow = (c: ChatSession) => (
+    <div
+      key={c.id}
+      onClick={() => {
+        openSession(c.id);
+        if (!onChat) navigate("/");
+      }}
+      className={`group relative flex cursor-pointer items-center rounded-[10px] text-[14.5px] transition ${
+        c.id === activeId
+          ? "bg-surface font-semibold text-ink"
+          : "text-ink-soft hover:bg-surface hover:text-ink"
+      }`}
+    >
+      <span className="min-w-0 flex-1 truncate px-2.5 py-2">{c.title}</span>
+      <div
+        className={`absolute right-1 flex items-center gap-0.5 rounded-[8px] pl-3 transition ${
+          c.id === activeId
+            ? "bg-surface"
+            : "bg-surface opacity-0 group-hover:opacity-100"
+        } ${c.pinned ? "opacity-100" : ""}`}
+        style={{
+          background: "linear-gradient(90deg, transparent, var(--surface) 28%)",
+        }}
+      >
+        <button
+          onClick={(e) => togglePin(e, c)}
+          title={c.pinned ? "Bỏ ghim" : "Ghim"}
+          className={`grid h-7 w-7 place-items-center rounded-[7px] transition hover:bg-surface-2 ${
+            c.pinned ? "text-accent" : "text-ink-faint hover:text-ink"
+          }`}
+        >
+          <IconPin size={15} />
+        </button>
+        <button
+          onClick={(e) => removeSession(e, c)}
+          title="Xóa"
+          className="grid h-7 w-7 place-items-center rounded-[7px] text-ink-faint transition hover:bg-danger/10 hover:text-danger"
+        >
+          <IconTrash size={15} />
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -139,27 +205,20 @@ export function AppLayout() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 pb-2">
+          {pinned.length > 0 && (
+            <div className="mb-2">
+              <div className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                <IconPin size={13} /> Đã ghim
+              </div>
+              {pinned.map(renderRow)}
+            </div>
+          )}
           {Object.keys(groups).map((g) => (
             <div key={g} className="mb-2">
               <div className="px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
                 {g}
               </div>
-              {groups[g].map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => {
-                    openSession(c.id);
-                    if (!onChat) navigate("/");
-                  }}
-                  className={`block w-full truncate rounded-[10px] px-2.5 py-2 text-left text-[14.5px] transition ${
-                    c.id === activeId
-                      ? "bg-surface font-semibold text-ink"
-                      : "text-ink-soft hover:bg-surface hover:text-ink"
-                  }`}
-                >
-                  {c.title}
-                </button>
-              ))}
+              {groups[g].map(renderRow)}
             </div>
           ))}
           {filtered.length === 0 && (

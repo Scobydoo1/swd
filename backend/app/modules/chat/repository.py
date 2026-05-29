@@ -29,7 +29,27 @@ class ChatRepository:
         q = self.db.query(ChatSession)
         if not is_admin:
             q = q.filter(ChatSession.user_id == user_id)
-        return q.order_by(ChatSession.created_at.desc()).all()
+        return q.order_by(
+            ChatSession.pinned.desc(), ChatSession.created_at.desc()
+        ).all()
+
+    def update_session(
+        self,
+        session: ChatSession,
+        title: str | None = None,
+        pinned: bool | None = None,
+    ) -> ChatSession:
+        if title is not None:
+            session.title = title
+        if pinned is not None:
+            session.pinned = pinned
+        self.db.commit()
+        self.db.refresh(session)
+        return session
+
+    def delete_session(self, session: ChatSession) -> None:
+        self.db.delete(session)
+        self.db.commit()
 
     def add_message(
         self,

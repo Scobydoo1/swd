@@ -155,6 +155,11 @@ export const IconUpload = (p: IcProps) => (
     <path d="M12 16V4M7 9l5-5 5 5M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16" />
   </Ic>
 );
+export const IconPin = (p: IcProps) => (
+  <Ic {...p}>
+    <path d="M8 4.5h8M9.5 4.5v4l-2 3v1.5h9V11.5l-2-3v-4M12 14v5.5" />
+  </Ic>
+);
 export const IconChat = (p: IcProps) => (
   <Ic {...p}>
     <path d="M20 11.5a7.5 7.5 0 0 1-10.5 6.86L4 20l1.64-5.5A7.5 7.5 0 1 1 20 11.5Z" />

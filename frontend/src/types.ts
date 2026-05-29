@@ -51,6 +51,7 @@ export interface ChatSession {
   id: number;
   title: string;
   course_id: number | null;
+  pinned: boolean;
   created_at: string;
 }
 

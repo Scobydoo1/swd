@@ -13,6 +13,7 @@ from app.modules.chat.schemas import (
     SessionCreate,
     SessionDetail,
     SessionOut,
+    SessionUpdate,
 )
 from app.modules.chat.service import ChatService
 from app.modules.users.models import Role
@@ -79,6 +80,39 @@ def get_session(
         id=session.id,
         title=session.title,
         course_id=session.course_id,
+        pinned=session.pinned,
         created_at=session.created_at,
         messages=messages,
     )
+
+
+def _get_owned_session(repo: ChatRepository, session_id: int, user):
+    session = repo.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Không tìm thấy phiên")
+    if user.role != Role.ADMIN and session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Không có quyền với phiên này")
+    return session
+
+
+@router.patch("/sessions/{session_id}", response_model=SessionOut)
+def update_session(
+    session_id: int,
+    payload: SessionUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    repo = ChatRepository(db)
+    session = _get_owned_session(repo, session_id, user)
+    return repo.update_session(session, title=payload.title, pinned=payload.pinned)
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+def delete_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    repo = ChatRepository(db)
+    session = _get_owned_session(repo, session_id, user)
+    repo.delete_session(session)

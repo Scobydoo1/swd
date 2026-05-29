@@ -37,12 +37,18 @@ class SessionCreate(BaseModel):
     course_id: int | None = None
 
 
+class SessionUpdate(BaseModel):
+    title: str | None = None
+    pinned: bool | None = None
+
+
 class SessionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     title: str
     course_id: int | None
+    pinned: bool = False
     created_at: datetime
 
 
