@@ -10,7 +10,37 @@ from app.config import settings
 
 @lru_cache
 def _client() -> genai.Client:
-    return genai.Client(api_key=settings.google_api_key)
+    # Timeout cứng cho mỗi lần gọi (ms): nếu Gemini/mạng treo, request sẽ
+    # bị hủy thay vì giữ chặt thread vô hạn -> không bao giờ làm treo app.
+    return genai.Client(
+        api_key=settings.google_api_key,
+        http_options=types.HttpOptions(timeout=_REQUEST_TIMEOUT_MS),
+    )
+
+
+# Mỗi lần gọi Gemini tối đa 30s; quá thì hủy và để retry/lỗi xử lý.
+_REQUEST_TIMEOUT_MS = 30_000
+
+
+def _retry_delay(exc: genai_errors.APIError, attempt: int) -> float:
+    """Lấy retryDelay server gợi ý (giây), nếu không có thì backoff tăng dần.
+
+    Giới hạn trần delay để một request lỗi không giữ chặt thread (threadpool)
+    quá lâu — tránh làm cạn threadpool và treo toàn bộ app.
+    """
+    try:
+        for d in exc.details.get("error", {}).get("details", []):
+            if d.get("@type", "").endswith("RetryInfo"):
+                raw = d.get("retryDelay", "")  # ví dụ "5s" hoặc "5.7s"
+                return min(float(raw.rstrip("s")) + 1, _MAX_RETRY_DELAY)
+    except (AttributeError, ValueError, TypeError):
+        pass
+    return min(2 ** attempt * 2, _MAX_RETRY_DELAY)
+
+
+# Giữ retry ngắn gọn: chat/embed thất bại sẽ trả lỗi nhanh thay vì ngậm thread.
+_MAX_RETRY_DELAY = 8.0
+_MAX_ATTEMPTS = 3
 
 
 def _to_gemini(messages: list[dict]) -> tuple[str | None, list[types.Content]]:
@@ -37,8 +67,9 @@ class LlmClient:
             system_instruction=system_instruction,
             temperature=temperature,
         )
-        # Model có thể trả 503 (quá tải) hoặc 429 (quota) tạm thời -> retry.
-        for attempt in range(4):
+        # Model có thể trả 503 (quá tải) hoặc 429 (quota) tạm thời -> retry,
+        # tôn trọng retryDelay server gợi ý, fallback sang backoff tăng dần.
+        for attempt in range(_MAX_ATTEMPTS):
             try:
                 resp = _client().models.generate_content(
                     model=settings.google_chat_model,
@@ -47,8 +78,8 @@ class LlmClient:
                 )
                 return resp.text or ""
             except genai_errors.APIError as exc:
-                if exc.code in (429, 503) and attempt < 3:
-                    time.sleep(5)
+                if exc.code in (429, 503) and attempt < _MAX_ATTEMPTS - 1:
+                    time.sleep(_retry_delay(exc, attempt))
                     continue
                 raise
 
@@ -58,7 +89,7 @@ class LlmClient:
         vectors: list[list[float]] = []
         for i in range(0, len(texts), 100):
             batch = texts[i : i + 100]
-            for attempt in range(6):
+            for attempt in range(_MAX_ATTEMPTS):
                 try:
                     resp = _client().models.embed_content(
                         model=settings.google_embed_model,
@@ -66,9 +97,9 @@ class LlmClient:
                     )
                     vectors.extend(e.values for e in resp.embeddings)
                     break
-                except genai_errors.ClientError as exc:
-                    if exc.code == 429 and attempt < 5:
-                        time.sleep(20)
+                except genai_errors.APIError as exc:
+                    if exc.code in (429, 503) and attempt < _MAX_ATTEMPTS - 1:
+                        time.sleep(_retry_delay(exc, attempt))
                         continue
                     raise
         return vectors
