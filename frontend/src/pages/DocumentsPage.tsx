@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { IconTrash, IconUpload } from "../components/Icons";
 import type { Course, Document } from "../types";
 
@@ -20,6 +21,9 @@ const typeIcon: Record<string, string> = {
 };
 
 export function DocumentsPage() {
+  const { user } = useAuth();
+  const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
+
   const [docs, setDocs] = useState<Document[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState<number | null>(null);
@@ -27,16 +31,46 @@ export function DocumentsPage() {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Tạo môn học mới
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [creating, setCreating] = useState(false);
+
   const load = () =>
     api.get<Document[]>("/documents").then((r) => setDocs(r.data));
 
-  useEffect(() => {
-    load();
+  const loadCourses = (selectId?: number) =>
     api.get<Course[]>("/courses").then((r) => {
       setCourses(r.data);
-      if (r.data[0]) setCourseId(r.data[0].id);
+      const pick = selectId ?? courseId ?? r.data[0]?.id ?? null;
+      setCourseId(pick);
     });
+
+  useEffect(() => {
+    load();
+    loadCourses();
   }, []);
+
+  const createCourse = async () => {
+    if (!newName.trim()) return;
+    setError("");
+    setCreating(true);
+    try {
+      const { data } = await api.post<Course>("/courses", {
+        name: newName.trim(),
+        description: newDesc.trim(),
+      });
+      await loadCourses(data.id);
+      setShowCreate(false);
+      setNewName("");
+      setNewDesc("");
+    } catch (e: any) {
+      setError(e.response?.data?.detail ?? "Tạo môn học thất bại");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const upload = async (file: File) => {
     if (!courseId) return;
@@ -81,13 +115,51 @@ export function DocumentsPage() {
             onChange={(e) => setCourseId(Number(e.target.value))}
             className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           >
+            {courses.length === 0 && <option value="">Chưa có môn học</option>}
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
+          {canManage && (
+            <button
+              onClick={() => setShowCreate((v) => !v)}
+              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-surface-2"
+            >
+              {showCreate ? "Hủy" : "+ Tạo môn học"}
+            </button>
+          )}
         </div>
+
+        {canManage && showCreate && (
+          <div className="mb-6 rounded-[20px] border border-line bg-surface p-5">
+            <h2 className="mb-3 text-sm font-semibold text-ink">
+              Tạo môn học mới
+            </h2>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Tên môn học"
+                className="flex-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+              <input
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                placeholder="Mô tả (tùy chọn)"
+                className="flex-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+              <button
+                onClick={createCourse}
+                disabled={creating || !newName.trim()}
+                className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent/90 disabled:opacity-50"
+              >
+                {creating ? "Đang tạo…" : "Tạo"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Upload zone */}
         <div
