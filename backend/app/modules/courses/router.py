@@ -10,11 +10,13 @@ from app.shared.dependencies import get_current_user, require_role
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
 
+# FR-LEC-02: Danh sách môn học (mọi người dùng đã đăng nhập).
 @router.get("", response_model=list[CourseOut])
 def list_courses(db: Session = Depends(get_db), _=Depends(get_current_user)):
     return CourseRepository(db).list()
 
 
+# FR-LEC-02: Tạo môn học — Lecturer hoặc Admin.
 @router.post("", response_model=CourseOut)
 def create_course(
     payload: CourseCreate,
@@ -26,6 +28,7 @@ def create_course(
     )
 
 
+# FR-LEC-02: Danh sách chương của một môn.
 @router.get("/{course_id}/chapters", response_model=list[ChapterOut])
 def list_chapters(
     course_id: int,

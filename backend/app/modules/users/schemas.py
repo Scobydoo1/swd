@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from app.modules.users.models import Role
+from app.modules.users.models import Plan, Role
 
 
 class UserOut(BaseModel):
@@ -12,8 +12,13 @@ class UserOut(BaseModel):
     email: EmailStr
     full_name: str
     role: Role
+    plan: Plan = Plan.FREE
     created_at: datetime
 
 
 class RoleUpdate(BaseModel):
     role: Role
+
+
+class PlanUpdate(BaseModel):
+    plan: Plan

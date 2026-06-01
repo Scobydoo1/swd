@@ -19,6 +19,7 @@ interface AuthCtx {
     role: Role
   ) => Promise<void>;
   logout: () => void;
+  refresh: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx>(null!);
@@ -70,8 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const refresh = async () => {
+    const { data } = await api.get<User>("/auth/me");
+    setUser(data);
+  };
+
   const value = useMemo(
-    () => ({ user, loading, login, register, logout }),
+    () => ({ user, loading, login, register, logout, refresh }),
     [user, loading]
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

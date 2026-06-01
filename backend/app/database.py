@@ -34,6 +34,7 @@ def init_db() -> None:
     from app.modules.courses import models as course_models  # noqa: F401
     from app.modules.documents import models as doc_models  # noqa: F401
     from app.modules.chat import models as chat_models  # noqa: F401
+    from app.modules.quizzes import models as quiz_models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     _run_lightweight_migrations()
@@ -56,4 +57,12 @@ def _run_lightweight_migrations() -> None:
                     "ALTER TABLE chat_sessions "
                     "ADD COLUMN pinned BOOLEAN NOT NULL DEFAULT 0"
                 )
+            )
+
+        user_cols = {
+            row[1] for row in conn.execute(text("PRAGMA table_info(users)"))
+        }
+        if "plan" not in user_cols:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN plan VARCHAR NOT NULL DEFAULT 'FREE'")
             )

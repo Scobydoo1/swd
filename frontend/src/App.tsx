@@ -6,6 +6,8 @@ import { AdminPage } from "./pages/AdminPage";
 import { ChatPage } from "./pages/ChatPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { LoginPage } from "./pages/LoginPage";
+import { PricingPage } from "./pages/PricingPage";
+import { QuizzesPage } from "./pages/QuizzesPage";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -34,6 +36,8 @@ export default function App() {
       >
         <Route index element={<ChatPage />} />
         <Route path="documents" element={<DocumentsPage />} />
+        <Route path="quizzes" element={<QuizzesPage />} />
+        <Route path="pricing" element={<PricingPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -187,3 +187,15 @@ export const IconQuote = (p: IcProps) => (
     <path d="M9 7H5.5A1.5 1.5 0 0 0 4 8.5V12a1.5 1.5 0 0 0 1.5 1.5H7v.5a3 3 0 0 1-3 3M19 7h-3.5A1.5 1.5 0 0 0 14 8.5V12a1.5 1.5 0 0 0 1.5 1.5H17v.5a3 3 0 0 1-3 3" />
   </Ic>
 );
+export const IconQuiz = (p: IcProps) => (
+  <Ic {...p}>
+    <rect x="5" y="3.5" width="14" height="17" rx="2.5" />
+    <path d="M9 3.5h6v2.5H9zM8.5 12l2 2 4-4" />
+  </Ic>
+);
+export const IconSpark = (p: IcProps) => (
+  <Ic {...p}>
+    <path d="M12 3.5l1.8 4.7L18.5 10l-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8L12 3.5Z" />
+    <path d="M19 16l.7 1.8L21.5 18.5l-1.8.7L19 21l-.7-1.8L16.5 18.5l1.8-.7L19 16Z" />
+  </Ic>
+);

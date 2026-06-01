@@ -20,3 +20,20 @@ frontend/.env
 .DS_Store
 .idea/
 .vscode/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Frontend dev server logs
+frontend/.devserver.log
+frontend/.devserver.err.log
+
+# Loose screenshot files at root
+*.png
+mobile-chat.png
+quiz-result-verified.png
+
+# Android build outputs (keep source, ignore binaries)
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/build/

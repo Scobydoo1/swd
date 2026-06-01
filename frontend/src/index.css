@@ -568,3 +568,32 @@ html[data-theme="dark"] .md-code {
   background: var(--line);
   color: var(--ink);
 }
+
+/* ---------- Responsive (mobile) ---------- */
+@media (max-width: 640px) {
+  .welcome {
+    padding: 5vh 16px 28px;
+  }
+  .welcome-title {
+    font-size: 26px;
+  }
+  .welcome-sub {
+    font-size: 15px;
+    margin-bottom: 26px;
+  }
+  .prompts {
+    grid-template-columns: 1fr;
+  }
+  .composer-wrap {
+    padding: 6px 12px 12px;
+  }
+  .comp-hint {
+    font-size: 11.5px;
+  }
+  .msg {
+    gap: 10px;
+  }
+  .msg-content {
+    font-size: 15.5px;
+  }
+}

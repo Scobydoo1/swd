@@ -10,6 +10,7 @@ from app.shared.dependencies import get_current_user, require_role
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 
+# FR-LEC-01: Upload tài liệu (PDF/DOCX/PPTX) -> ingest vào RAG pipeline.
 @router.post("", response_model=DocumentOut)
 async def upload_document(
     file: UploadFile = File(...),
@@ -22,12 +23,14 @@ async def upload_document(
     return DocumentService(db).ingest(
         content=content,
         filename=file.filename,
+        content_type=file.content_type,
         course_id=course_id,
         chapter_id=chapter_id,
         uploaded_by=user.id,
     )
 
 
+# FR-LEC-03: Xem danh sách tài liệu đã index kèm trạng thái.
 @router.get("", response_model=list[DocumentOut])
 def list_documents(
     course_id: int | None = None,
@@ -37,6 +40,7 @@ def list_documents(
     return DocumentService(db).list(course_id)
 
 
+# FR-ADM-02 / FR-LEC: Xóa tài liệu (+ vector) — Lecturer của mình hoặc Admin.
 @router.delete("/{doc_id}", status_code=204)
 def delete_document(
     doc_id: int,

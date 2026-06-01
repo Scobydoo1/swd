@@ -58,5 +58,32 @@ def detect_file_type(filename: str) -> FileType:
     raise ValueError("Định dạng không hỗ trợ (chỉ PDF, DOCX, PPTX)")
 
 
+# FR-LEC-01 / §11.3 / §12: chỉ chấp nhận PDF, DOCX, PPTX — validate cả MIME
+# type lẫn extension ở server side.
+_ALLOWED_MIME: dict[FileType, set[str]] = {
+    FileType.PDF: {"application/pdf"},
+    FileType.DOCX: {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    },
+    FileType.PPTX: {
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    },
+}
+
+# MIME chung chung mà nhiều client gửi khi không nhận diện được — khi đó tin
+# vào extension đã được kiểm ở detect_file_type.
+_GENERIC_MIME = {"", "application/octet-stream", "binary/octet-stream"}
+
+
+def validate_mime(file_type: FileType, content_type: str | None) -> None:
+    if (content_type or "") in _GENERIC_MIME:
+        return
+    if content_type not in _ALLOWED_MIME[file_type]:
+        raise ValueError(
+            f"Nội dung tệp ({content_type}) không khớp định dạng "
+            f"{file_type.value}"
+        )
+
+
 def parse(content: bytes, file_type: FileType) -> list[tuple[str, int]]:
     return _PARSERS[file_type](content)

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.modules.users.models import Role, User
+from app.modules.users.models import Plan, Role, User
 
 
 class UserRepository:
@@ -32,6 +32,12 @@ class UserRepository:
 
     def update_role(self, user: User, role: Role) -> User:
         user.role = role
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def update_plan(self, user: User, plan: Plan) -> User:
+        user.plan = plan
         self.db.commit()
         self.db.refresh(user)
         return user

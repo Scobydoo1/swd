@@ -13,6 +13,12 @@ class Role(str, enum.Enum):
     USER = "USER"
 
 
+class Plan(str, enum.Enum):
+    FREE = "FREE"
+    PRO = "PRO"
+    MAX = "MAX"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -21,4 +27,5 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String)
     full_name: Mapped[str] = mapped_column(String)
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.USER)
+    plan: Mapped[Plan] = mapped_column(Enum(Plan), default=Plan.FREE)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

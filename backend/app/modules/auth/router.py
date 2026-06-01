@@ -11,11 +11,13 @@ from app.shared.dependencies import get_current_user
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+# FR-USR-01: Đăng ký tài khoản -> JWT.
 @router.post("/register", response_model=TokenResponse)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     return AuthService(db).register(req)
 
 
+# FR-USR-01: Đăng nhập bằng email + mật khẩu -> JWT.
 @router.post("/login", response_model=TokenResponse)
 def login(
     form: OAuth2PasswordRequestForm = Depends(),

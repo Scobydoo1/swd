@@ -1,6 +1,9 @@
+import re
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.llm.client import LlmClient
 from app.modules.chat.models import MsgRole
 from app.modules.chat.repository import ChatRepository
@@ -17,6 +20,21 @@ QUY TẮC BẮT BUỘC:
 """
 
 NO_CONTEXT_MSG = "Tôi không tìm thấy thông tin này trong tài liệu."
+
+
+def _local_answer(retrieved: list[dict]) -> str:
+    """Chế độ offline ("ẩn AI"): trả lời trích xuất từ các đoạn liên quan nhất,
+    không gọi LLM ngoài. Citations vẫn được trả về riêng như thường."""
+    lines = []
+    for r in retrieved[:3]:
+        snippet = re.sub(r"\s+", " ", r["source_text"]).strip()[:400]
+        lines.append(f"• ({r['document_name']}, trang {r['page']}): {snippet}")
+    body = "\n".join(lines)
+    return (
+        "🔌 Chế độ offline (AI đang tắt). Dưới đây là những đoạn tài liệu liên "
+        f"quan nhất tới câu hỏi của bạn:\n\n{body}\n\n"
+        "Để nhận câu trả lời tổng hợp, hãy đặt GOOGLE_API_KEY và LLM_PROVIDER=gemini."
+    )
 
 
 class ChatService:
@@ -42,21 +60,23 @@ class ChatService:
                 session_id=session.id, answer=NO_CONTEXT_MSG, citations=[]
             )
 
-        context = "\n\n---\n".join(
-            f"[Nguồn: {r['document_name']} - trang {r['page']}]\n{r['source_text']}"
-            for r in retrieved
-        )
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        for m in self.repo.recent_history(session.id, limit=6):
-            messages.append({"role": m.role.value, "content": m.content})
-        messages.append(
-            {
-                "role": "user",
-                "content": f"NGỮ CẢNH:\n{context}\n\nCÂU HỎI: {req.question}",
-            }
-        )
-
-        answer = self.llm.chat(messages)
+        if settings.llm_provider == "local":
+            answer = _local_answer(retrieved)
+        else:
+            context = "\n\n---\n".join(
+                f"[Nguồn: {r['document_name']} - trang {r['page']}]\n{r['source_text']}"
+                for r in retrieved
+            )
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+            for m in self.repo.recent_history(session.id, limit=6):
+                messages.append({"role": m.role.value, "content": m.content})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"NGỮ CẢNH:\n{context}\n\nCÂU HỎI: {req.question}",
+                }
+            )
+            answer = self.llm.chat(messages)
         self.repo.add_message(
             session.id, MsgRole.ASSISTANT, answer, [c.model_dump() for c in citations]
         )

@@ -11,8 +11,10 @@ import {
   IconMaple,
   IconPin,
   IconPlus,
+  IconQuiz,
   IconSearch,
   IconSidebar,
+  IconSpark,
   IconTrash,
   IconUsers,
 } from "../Icons";
@@ -27,15 +29,18 @@ function NavItem({
   to,
   label,
   icon,
+  onClick,
 }: {
   to: string;
   label: string;
   icon: React.ReactNode;
+  onClick?: () => void;
 }) {
   return (
     <NavLink
       to={to}
       end={to === "/"}
+      onClick={onClick}
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-[11px] px-3 py-2.5 text-sm font-medium transition ${
           isActive
@@ -70,11 +75,19 @@ export function AppLayout() {
   const location = useLocation();
   const { sessions, setSessions, activeId, openSession, newChat } =
     useChatSessions();
-  const [open, setOpen] = useState(true);
+  // Mặc định mở trên desktop, thu gọn trên mobile (drawer).
+  const [open, setOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 1024
+  );
   const [q, setQ] = useState("");
 
   const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
   const onChat = location.pathname === "/";
+
+  // Trên mobile, đóng drawer sau khi điều hướng / chọn cuộc trò chuyện.
+  const closeOnMobile = () => {
+    if (window.innerWidth < 1024) setOpen(false);
+  };
 
   const togglePin = async (e: React.MouseEvent, s: ChatSession) => {
     e.stopPropagation();
@@ -104,6 +117,7 @@ export function AppLayout() {
       onClick={() => {
         openSession(c.id);
         if (!onChat) navigate("/");
+        closeOnMobile();
       }}
       className={`group relative flex cursor-pointer items-center rounded-[10px] text-[14.5px] transition ${
         c.id === activeId
@@ -144,11 +158,20 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
+      {/* Backdrop cho drawer trên mobile */}
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
       <aside
-        className={`flex flex-col border-r border-line bg-sidebar transition-[margin] duration-300 ${
-          open ? "" : "-ml-[289px]"
+        className={`fixed inset-y-0 left-0 z-40 flex w-[288px] flex-none flex-col border-r border-line bg-sidebar transition-transform duration-300 lg:static lg:z-auto lg:transition-[margin] ${
+          open
+            ? "translate-x-0 lg:ml-0"
+            : "-translate-x-full lg:translate-x-0 lg:-ml-[289px]"
         }`}
-        style={{ width: 288, flex: "0 0 288px" }}
+        style={{ flex: "0 0 288px" }}
       >
         <div className="flex items-center justify-between px-4 pb-3 pt-[18px]">
           <div className="flex items-center gap-2.5">
@@ -174,6 +197,7 @@ export function AppLayout() {
           onClick={() => {
             newChat();
             if (!onChat) navigate("/");
+            closeOnMobile();
           }}
         >
           <span className="text-accent">
@@ -184,12 +208,14 @@ export function AppLayout() {
 
         {/* App navigation */}
         <nav className="mx-[14px] mb-2 flex flex-col gap-1">
-          <NavItem to="/" label="Hỏi đáp" icon={<IconChat size={19} />} />
+          <NavItem to="/" label="Hỏi đáp" icon={<IconChat size={19} />} onClick={closeOnMobile} />
           {canManage && (
-            <NavItem to="/documents" label="Tài liệu" icon={<IconBook size={19} />} />
+            <NavItem to="/documents" label="Tài liệu" icon={<IconBook size={19} />} onClick={closeOnMobile} />
           )}
+          <NavItem to="/quizzes" label="Quiz" icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
+          <NavItem to="/pricing" label="Gói dịch vụ" icon={<IconSpark size={19} />} onClick={closeOnMobile} />
           {user?.role === "ADMIN" && (
-            <NavItem to="/admin" label="Người dùng" icon={<IconUsers size={19} />} />
+            <NavItem to="/admin" label="Người dùng" icon={<IconUsers size={19} />} onClick={closeOnMobile} />
           )}
         </nav>
 
@@ -239,8 +265,11 @@ export function AppLayout() {
               <div className="truncate text-[14.5px] font-semibold">
                 {user?.full_name}
               </div>
-              <div className="text-[12.5px] text-ink-faint">
-                {roleLabel[user?.role ?? "USER"]}
+              <div className="flex items-center gap-1.5 text-[12.5px] text-ink-faint">
+                <span className="truncate">{roleLabel[user?.role ?? "USER"]}</span>
+                <span className="flex-none rounded-full bg-accent/12 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-accent">
+                  {user?.plan ?? "FREE"}
+                </span>
               </div>
             </div>
             <button
@@ -260,14 +289,14 @@ export function AppLayout() {
       <main className="relative flex min-w-0 flex-1 flex-col bg-bg">
         {!open && (
           <button
-            className="absolute left-3 top-[10px] z-10 grid h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink"
+            className="absolute left-3 top-[10px] z-10 hidden h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:grid"
             title="Mở thanh bên"
             onClick={() => setOpen(true)}
           >
             <IconSidebar size={20} />
           </button>
         )}
-        <Outlet />
+        <Outlet context={{ openSidebar: () => setOpen(true) }} />
       </main>
     </div>
   );

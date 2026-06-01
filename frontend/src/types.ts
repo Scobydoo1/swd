@@ -1,11 +1,59 @@
 export type Role = "ADMIN" | "LECTURER" | "USER";
+export type Plan = "FREE" | "PRO" | "MAX";
 
 export interface User {
   id: number;
   email: string;
   full_name: string;
   role: Role;
+  plan: Plan;
   created_at: string;
+}
+
+export interface PlanOption {
+  id: Plan;
+  name: string;
+  price: number;
+  price_label: string;
+  tagline: string;
+  features: string[];
+  highlight: boolean;
+  current: boolean;
+}
+
+export interface QuizListItem {
+  id: number;
+  course_id: number;
+  title: string;
+  num_questions: number;
+  created_at: string;
+}
+
+export interface QuizQuestion {
+  id: number;
+  text: string;
+  options: string[];
+}
+
+export interface QuizDetail {
+  id: number;
+  course_id: number;
+  title: string;
+  questions: QuizQuestion[];
+}
+
+export interface QuestionResult {
+  question_id: number;
+  your_index: number | null;
+  correct_index: number;
+  is_correct: boolean;
+}
+
+export interface AttemptResult {
+  score: number;
+  correct: number;
+  total: number;
+  results: QuestionResult[];
 }
 
 export interface TokenResponse {

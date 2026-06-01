@@ -4,14 +4,18 @@ import chromadb
 
 from app.config import settings
 
-_COLLECTION = "course_documents"
+
+def _collection_name() -> str:
+    # Tách collection theo provider: vector local (512 chiều) và Gemini
+    # (vài nghìn chiều) khác số chiều -> không được trộn chung một collection.
+    return f"course_documents_{settings.embed_provider}"
 
 
 @lru_cache
 def _collection():
     client = chromadb.PersistentClient(path=settings.chroma_dir)
     return client.get_or_create_collection(
-        name=_COLLECTION, metadata={"hnsw:space": "cosine"}
+        name=_collection_name(), metadata={"hnsw:space": "cosine"}
     )
 
 

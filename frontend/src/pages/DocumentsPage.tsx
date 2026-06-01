@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { IconTrash, IconUpload } from "../components/Icons";
+import { IconSidebar, IconTrash, IconUpload } from "../components/Icons";
 import type { Course, Document } from "../types";
 
 const statusStyle: Record<string, string> = {
@@ -22,6 +23,7 @@ const typeIcon: Record<string, string> = {
 
 export function DocumentsPage() {
   const { user } = useAuth();
+  const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
 
   const [docs, setDocs] = useState<Document[]>([]);
@@ -97,18 +99,27 @@ export function DocumentsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-8">
+    <div className="h-full overflow-y-auto p-4 sm:p-8">
       <div className="mx-auto max-w-5xl">
         <header className="mb-6">
-          <h1 className="font-display text-2xl font-bold text-ink">
-            Quản lý tài liệu
-          </h1>
-          <p className="text-sm text-ink-faint">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openSidebar()}
+              className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
+              title="Mở thanh bên"
+            >
+              <IconSidebar size={19} />
+            </button>
+            <h1 className="font-display text-2xl font-bold text-ink">
+              Quản lý tài liệu
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-ink-faint">
             Upload tài liệu bài giảng — hệ thống tự động chunk &amp; embed.
           </p>
         </header>
 
-        <div className="mb-6 flex items-center gap-3">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
           <label className="text-sm font-medium text-ink-soft">Môn học:</label>
           <select
             value={courseId ?? ""}
@@ -169,7 +180,7 @@ export function DocumentsPage() {
             if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
           }}
           onClick={() => fileRef.current?.click()}
-          className="mb-8 cursor-pointer rounded-[24px] border-2 border-dashed border-line bg-surface p-10 text-center transition hover:border-accent/60 hover:bg-surface-2"
+          className="mb-8 cursor-pointer rounded-[24px] border-2 border-dashed border-line bg-surface p-6 text-center transition hover:border-accent/60 hover:bg-surface-2 sm:p-10"
         >
           <input
             ref={fileRef}
@@ -206,10 +217,10 @@ export function DocumentsPage() {
 
         {/* Document list */}
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
-          <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-            <div className="col-span-6">Tài liệu</div>
-            <div className="col-span-2">Chunks</div>
-            <div className="col-span-2">Trạng thái</div>
+          <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint sm:px-5">
+            <div className="col-span-7 sm:col-span-6">Tài liệu</div>
+            <div className="hidden sm:col-span-2 sm:block">Chunks</div>
+            <div className="col-span-3 sm:col-span-2">Trạng thái</div>
             <div className="col-span-2 text-right">Thao tác</div>
           </div>
           {docs.length === 0 && (
@@ -220,16 +231,16 @@ export function DocumentsPage() {
           {docs.map((d) => (
             <div
               key={d.id}
-              className="grid grid-cols-12 items-center gap-3 border-b border-line-soft px-5 py-3.5 text-sm transition last:border-0 hover:bg-surface-2/50"
+              className="grid grid-cols-12 items-center gap-3 border-b border-line-soft px-4 py-3.5 text-sm transition last:border-0 hover:bg-surface-2/50 sm:px-5"
             >
-              <div className="col-span-6 flex items-center gap-3">
+              <div className="col-span-7 flex min-w-0 items-center gap-3 sm:col-span-6">
                 <span className="text-xl">{typeIcon[d.file_type]}</span>
                 <span className="truncate font-medium text-ink">
                   {d.filename}
                 </span>
               </div>
-              <div className="col-span-2 text-ink-soft">{d.num_chunks}</div>
-              <div className="col-span-2">
+              <div className="hidden text-ink-soft sm:col-span-2 sm:block">{d.num_chunks}</div>
+              <div className="col-span-3 sm:col-span-2">
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[d.status]}`}
                 >

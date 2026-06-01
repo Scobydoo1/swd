@@ -7,8 +7,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     google_api_key: str = ""
-    google_chat_model: str = "gemini-2.0-flash"
-    google_embed_model: str = "text-embedding-004"
+    google_chat_model: str = "gemini-2.5-flash"
+    google_embed_model: str = "gemini-embedding-001"
+
+    # Provider AI: "local" (offline, không cần API key — ẩn AI) hoặc "gemini"
+    # (gọi Google API). Mặc định "local" để chạy được ngay không cần key.
+    embed_provider: str = "local"
+    llm_provider: str = "local"
+    local_embed_dim: int = 512
 
     chroma_dir: str = "./data/chroma"
     database_url: str = "sqlite:///./data/app.db"

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
 import { MessageBubble } from "../components/chat/MessageBubble";
 import {
@@ -9,6 +10,7 @@ import {
   IconMoon,
   IconPaperclip,
   IconSend,
+  IconSidebar,
   IconStop,
   IconSun,
 } from "../components/Icons";
@@ -35,6 +37,7 @@ const uid = () => Date.now() * 1000 + ++_idc;
 
 export function ChatPage() {
   const { dark, toggle } = useTheme();
+  const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const { sessions, setSessions, activeId, setActiveId, register } =
     useChatSessions();
   const [courses, setCourses] = useState<Course[]>([]);
@@ -191,15 +194,22 @@ export function ChatPage() {
     <div className="main flex h-full flex-col bg-bg">
       <header className="topbar sticky top-0 z-[5] flex h-[58px] flex-none items-center justify-between border-b border-line-soft px-4 backdrop-blur"
         style={{ background: "color-mix(in oklab, var(--bg) 85%, transparent)" }}>
-        <div className="flex items-center gap-2">
-          <span className="ml-1 text-base font-semibold tracking-tight">{activeTitle}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            onClick={() => openSidebar()}
+            className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
+            title="Mở thanh bên"
+          >
+            <IconSidebar size={19} />
+          </button>
+          <span className="truncate text-base font-semibold tracking-tight">{activeTitle}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-none items-center gap-2">
           {courses.length > 0 && (
             <select
               value={courseId ?? ""}
               onChange={(e) => setCourseId(Number(e.target.value))}
-              className="rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none transition focus:border-accent/60"
+              className="max-w-[42vw] rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none transition focus:border-accent/60 sm:max-w-none"
             >
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -222,7 +232,7 @@ export function ChatPage() {
         {messages.length === 0 ? (
           <Welcome onPrompt={(p) => send(p, [])} />
         ) : (
-          <div className="thread mx-auto flex max-w-[760px] flex-col gap-[26px] px-7 pb-6 pt-[30px]">
+          <div className="thread mx-auto flex max-w-[760px] flex-col gap-[26px] px-4 pb-6 pt-[30px] sm:px-7">
             {messages.map((m) => (
               <MessageBubble key={m.id} message={m} onRegenerate={regenerate} />
             ))}

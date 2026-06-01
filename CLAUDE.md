@@ -31,21 +31,38 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 
 ---
 
-## 2. Yêu cầu chức năng (từ readme)
+## 2. Yêu cầu chức năng
 
-### A. Tính năng hệ thống
+### A. Functional Requirements theo actor
 
-**1. Quản lý tài liệu**
-- Upload PDF, DOCX, slide bài giảng.
-- Tự động chunk & embed tài liệu.
-- Quản lý theo môn học / chương (chỉ cần demo 1 môn).
-- Xem danh sách tài liệu đã index.
+#### User / Sinh viên (FR-USR)
+- `FR-USR-01` — Đăng ký / đăng nhập bằng email + mật khẩu, nhận JWT
+- `FR-USR-02` — Chat hỏi đáp tự nhiên theo ngữ cảnh hội thoại (RAG)
+- `FR-USR-03` — Xem trích dẫn nguồn tài liệu gốc kèm mỗi câu trả lời
+- `FR-USR-04` — Xem danh sách & lịch sử phiên chat của chính mình
 
-**2. Chat & Hỏi đáp**
-- Chat tự nhiên theo ngữ cảnh hội thoại.
-- Trích dẫn nguồn tài liệu gốc.
-- Giới hạn trả lời trong phạm vi tài liệu (không bịa — nếu không có trong tài liệu thì nói rõ).
-- Lịch sử hội thoại theo phiên (session).
+#### Lecturer / Giảng viên (FR-LEC)
+- `FR-LEC-01` — Upload tài liệu (PDF, DOCX, PPTX) → tự động ingest vào RAG pipeline
+- `FR-LEC-02` — Tạo & quản lý môn học / chương
+- `FR-LEC-03` — Xem trạng thái index tài liệu (PROCESSING / INDEXED / FAILED)
+
+#### Admin (FR-ADM)
+- `FR-ADM-01` — CRUD người dùng, đổi role (ADMIN / LECTURER / USER)
+- `FR-ADM-02` — Quản lý mọi tài liệu và môn học (không giới hạn ownership)
+- `FR-ADM-03` — Xem toàn bộ phiên chat của mọi người dùng
+- `FR-ADM-04` — Cấu hình hệ thống qua env (model name, API key, paths)
+- `FR-ADM-05` — Đổi gói dịch vụ (plan) của người dùng: `PATCH /users/{id}/plan`
+
+#### Quiz (FR-QZ)
+- `FR-QZ-01` — Lecturer/Admin tạo quiz trắc nghiệm gắn với môn học (nhiều câu, mỗi câu ≥2 lựa chọn, 1 đáp án đúng)
+- `FR-QZ-02` — Student làm quiz; endpoint trả đề **ẩn đáp án đúng** (chống lộ đáp án)
+- `FR-QZ-03` — Nộp bài → backend chấm điểm, trả `score / correct / total` + đáp án đúng từng câu
+- `FR-QZ-04` — Lecturer (của mình) / Admin xóa quiz; xem danh sách lượt làm (attempts)
+
+#### Subscription / Gói dịch vụ (FR-SUB)
+- `FR-SUB-01` — Xem 3 gói **Free / Pro / Max** (giá, tính năng), đánh dấu gói hiện tại: `GET /plans`
+- `FR-SUB-02` — Người dùng tự nâng cấp gói cho chính mình: `POST /subscriptions` (`plan_id`)
+- `FR-SUB-03` — Rate-limit chat **theo gói** (Free 20 / Pro 60 / Max 120 câu mỗi phút)
 
 ### B. Deliverables
 - Web app chatbot.
@@ -59,6 +76,7 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 | Layer | Công nghệ | Ghi chú |
 |-------|-----------|---------|
 | Frontend | **React** (Vite + TypeScript) | UI đẹp, bắt mắt. Tailwind CSS + component library |
+| Mobile | **Capacitor** (Android) | Bọc cùng codebase web thành app cài đặt (xem §9.1) |
 | Backend | **Python 3.11+ / FastAPI** | Modular Monolith |
 | LLM | **Google Gemini** (gemini-2.5-flash) | Chat completion |
 | Embedding | **Google gemini-embedding-001** | Tạo vector |
@@ -120,11 +138,24 @@ backend/
 │   │   │   ├── vector_store.py  # ChromaDB wrapper (add/query)
 │   │   │   └── retriever.py     # Similarity search + filter theo môn/chương
 │   │   │
-│   │   └── courses/             # MODULE: Môn học / Chương
-│   │       ├── router.py        # GET /courses, /courses/{id}/chapters
+│   │   ├── courses/             # MODULE: Môn học / Chương
+│   │   │   ├── router.py        # GET /courses, /courses/{id}/chapters
+│   │   │   ├── service.py
+│   │   │   ├── repository.py
+│   │   │   └── models.py        # Course, Chapter
+│   │   │
+│   │   ├── quizzes/             # MODULE: Quiz trắc nghiệm
+│   │   │   ├── router.py        # POST/GET /quizzes, /{id}/submit, /{id}/attempts
+│   │   │   ├── service.py       # Tạo quiz, chấm điểm (ẩn đáp án khi trả đề)
+│   │   │   ├── repository.py
+│   │   │   ├── models.py        # Quiz, Question, QuizAttempt
+│   │   │   └── schemas.py
+│   │   │
+│   │   └── subscriptions/       # MODULE: Gói dịch vụ Free/Pro/Max
+│   │       ├── router.py        # GET /plans, POST /subscriptions, /subscriptions/me
 │   │       ├── service.py
-│   │       ├── repository.py
-│   │       └── models.py        # Course, Chapter
+│   │       ├── plans.py         # Định nghĩa tĩnh 3 gói (giá, tính năng)
+│   │       └── schemas.py
 │   │
 │   └── llm/                     # Google Gemini client wrapper (chat + embedding)
 │
@@ -171,7 +202,7 @@ frontend/
 1. Nhận file → lưu metadata `Document` (SQLite, status=PROCESSING).
 2. Parse file → text (parsers.py).
 3. Chunk text (RecursiveCharacterTextSplitter, ~800 token, overlap ~100).
-4. Embed từng chunk (Google text-embedding-004).
+4. Embed từng chunk (Google gemini-embedding-001).
 5. Lưu vector vào ChromaDB kèm metadata: `{document_id, course_id, chapter, chunk_index, source_text, page}`.
 6. Update `Document.status = INDEXED`.
 
@@ -206,19 +237,33 @@ frontend/
 | GET | `/api/sessions` | Danh sách phiên chat (của mình) | All |
 | GET | `/api/sessions/{id}` | Lịch sử messages của phiên | Owner, Admin |
 | POST | `/api/sessions` | Tạo phiên mới | All |
+| PATCH | `/api/users/{id}/plan` | Đổi gói dịch vụ người dùng | Admin |
+| GET | `/api/quizzes` | Danh sách quiz | All |
+| POST | `/api/quizzes` | Tạo quiz | Lecturer, Admin |
+| GET | `/api/quizzes/{id}` | Lấy đề (ẩn đáp án đúng) | All |
+| POST | `/api/quizzes/{id}/submit` | Nộp bài → chấm điểm + đáp án | All |
+| GET | `/api/quizzes/{id}/attempts` | Lượt làm bài | Lecturer (của mình), Admin |
+| DELETE | `/api/quizzes/{id}` | Xóa quiz | Lecturer (của mình), Admin |
+| GET | `/api/plans` | 3 gói Free/Pro/Max + gói hiện tại | All |
+| POST | `/api/subscriptions` | Nâng cấp gói cho chính mình | All |
+| GET | `/api/subscriptions/me` | Gói hiện tại của mình | All |
 
 ---
 
 ## 7. Data Model (SQLite)
 
-- **User** (id, email, password_hash, full_name, role[ADMIN|LECTURER|USER], created_at)
+- **User** (id, email, password_hash, full_name, role[ADMIN|LECTURER|USER], **plan[FREE|PRO|MAX]**, created_at)
 - **Course** (id, name, description, owner_id → User[Lecturer])
 - **Chapter** (id, course_id, title, order)
 - **Document** (id, course_id, chapter_id?, uploaded_by → User, filename, file_type, status, num_chunks, created_at)
 - **ChatSession** (id, user_id → User, title, created_at)
 - **Message** (id, session_id, role[user|assistant], content, citations_json, created_at)
+- **Quiz** (id, course_id → Course, created_by → User, title, created_at)
+- **Question** (id, quiz_id → Quiz, text, options_json, correct_index)
+- **QuizAttempt** (id, quiz_id → Quiz, user_id → User, score, answers_json, created_at)
 
 Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để gọn).
+Gói dịch vụ (Free/Pro/Max + giá + tính năng) định nghĩa tĩnh trong `subscriptions/plans.py`, không lưu DB.
 
 ---
 
@@ -237,6 +282,7 @@ Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để g
 - Pydantic v2 cho schema. Type hints bắt buộc.
 - Async cho IO (FastAPI endpoints, Gemini API calls).
 - Không hardcode secret — đọc từ `.env` qua `config.py`.
+- Mật khẩu hash bằng `bcrypt` — không lưu plaintext.
 
 **Frontend (React):**
 - TypeScript strict. Function components + hooks.
@@ -248,11 +294,16 @@ Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để g
 # Backend
 cd backend && uvicorn app.main:app --reload --port 8000
 
-# Frontend
+# Frontend (web)
 cd frontend && npm run dev
 
 # Test set evaluation
 cd backend && python tests/evaluate.py
+
+# Android (Capacitor): build dist → sync → mở Android Studio
+cd frontend && npm run cap:sync && npm run cap:open
+# hoặc build thẳng APK debug (cần JDK + Android SDK):
+cd frontend && npm run cap:apk   # -> android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 **Env (`.env`):**
@@ -262,7 +313,29 @@ GOOGLE_CHAT_MODEL=gemini-2.5-flash
 GOOGLE_EMBED_MODEL=gemini-embedding-001
 CHROMA_DIR=./data/chroma
 DATABASE_URL=sqlite:///./data/app.db
+# Web dev dùng http://localhost:5173. App Capacitor (webview) thêm các origin localhost:
+CORS_ORIGINS=http://localhost:5173,http://localhost,https://localhost,capacitor://localhost
 ```
+
+---
+
+## 9.1. Đa nền tảng: Web + Android (một codebase)
+
+Cùng một frontend React build ra **2 sản phẩm**: website (Vite) và **app Android cài đặt** (Capacitor bọc `dist/`).
+
+- **API base linh hoạt** — `src/api/client.ts` đọc `VITE_API_BASE` (mặc định `/api` tương đối,
+  proxy qua Vite cho web). APK đứng một mình **không có proxy** nên phải build với URL backend tuyệt đối:
+  - Emulator → host: `VITE_API_BASE=http://10.0.2.2:8000/api`
+  - Điện thoại cùng Wi-Fi: `VITE_API_BASE=http://<IP-LAN-máy>:8000/api` (mở firewall cổng 8000)
+- **Cleartext HTTP** — backend demo chạy HTTP nên `capacitor.config.ts` đặt `androidScheme: "http"` +
+  `cleartext: true`, và `AndroidManifest.xml` có `android:usesCleartextTraffic="true"`. Production HTTPS thì bỏ.
+- **CORS** — webview origin là `http://localhost`, đã thêm vào `CORS_ORIGINS` (xem trên).
+- **Live-reload khi dev** (tuỳ chọn) — mở comment `server.url` trong `capacitor.config.ts` trỏ về Vite dev
+  server LAN; khi đó `/api` proxy qua Vite, không cần build lại APK mỗi lần sửa.
+- Backend phải lắng nghe `0.0.0.0` để emulator/điện thoại truy cập: `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+
+> Thư mục native `frontend/android/` do `npx cap add android` sinh ra. Sau khi sửa code web phải
+> `npm run build && npx cap sync android` để copy `dist/` mới vào app.
 
 ---
 
@@ -281,10 +354,49 @@ Chi tiết sơ đồ xem `docs/DESIGN.md`.
 
 ---
 
-## 11. Lưu ý cho Claude Code
+## 11. Quy tắc sinh code (Code Generation Rules)
+
+Khi implement bất kỳ tính năng nào, tuân theo các quy tắc sau:
+
+1. **Tham chiếu FR code** trong comment khi implement một yêu cầu.
+   Ví dụ: `# FR-USR-02: RAG chat query handler`
+
+2. **Không trộn lẫn logic của các role** — giữ logic User / Lecturer / Admin trong các service layer riêng biệt. Khi cần check quyền, dùng `require_role(...)` trong `shared/dependencies.py`, không viết if/else role inline trong service.
+
+3. **Upload tài liệu** chỉ chấp nhận `.pdf`, `.docx`, `.pptx` — validate cả MIME type lẫn extension ở server side, trả lỗi rõ ràng nếu sai định dạng.
+
+4. **Lịch sử chat** phải được lưu và có thể phân trang — không trả toàn bộ history trong một response.
+
+5. **Citations là bắt buộc** trong mọi câu trả lời AI — không trả bare answer không có source attribution.
+
+6. **Mọi API route mới** phải có đủ 4 thứ:
+   - Auth middleware (kiểm tra JWT hợp lệ)
+   - Role guard (`require_role(...)`)
+   - Input validation (Pydantic schema)
+   - Error handling với HTTP status code phù hợp
+
+7. **Gemini API** chỉ được gọi qua `llm/` wrapper — không import `google.generativeai` trực tiếp trong các module nghiệp vụ. Tương tự, embedding chỉ qua `rag/embedder.py`.
+
+8. **Không log dữ liệu nhạy cảm** — không log password, API key, hay token. Log phải có: timestamp, user_id, action, outcome.
+
+---
+
+## 12. Non-Functional Reminders
+
+- **File upload:** Validate MIME type + file extension ở server side trước khi xử lý.
+- **Rate limiting:** Áp dụng cho AI chat endpoints (`/api/chat`) để tránh lạm dụng.
+- **Auth:** JWT access token nên có thời hạn ngắn (ví dụ 30 phút), cấu hình qua env.
+- **Security:** Passwords hash bằng bcrypt. Không expose stack trace trong response production.
+- **Gemini retry:** Có giới hạn retry khi gọi Gemini API — không để vòng lặp retry không giới hạn gây treo app.
+- **ChromaDB:** Khi xóa tài liệu, phải xóa cả vector trong ChromaDB lẫn metadata trong SQLite.
+
+---
+
+## 13. Lưu ý cho Claude Code
 
 - Giữ project **đơn giản**, chỉ làm đủ yêu cầu — không over-engineer.
 - Ưu tiên giao diện đẹp, bắt mắt cho frontend (đây là yêu cầu rõ của người dùng).
 - Khi thêm tính năng, tôn trọng ranh giới module — không để module này gọi thẳng repository của module khác.
 - Tài liệu thiết kế (UML, Use Case, Architecture) nằm ở `docs/DESIGN.md`.
 - Người dùng giao tiếp bằng tiếng Việt.
+- Khi implement một requirement, luôn hỏi: **actor nào sở hữu tính năng này?** và gate đúng quyền.

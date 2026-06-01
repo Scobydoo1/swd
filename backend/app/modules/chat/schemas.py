@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Citation(BaseModel):
@@ -11,7 +11,8 @@ class Citation(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    question: str
+    # §11.6: input validation — câu hỏi không rỗng và có giới hạn độ dài.
+    question: str = Field(min_length=1, max_length=4000)
     session_id: int | None = None
     course_id: int | None = None
 

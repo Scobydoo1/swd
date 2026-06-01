@@ -17,12 +17,14 @@ class DocumentService:
         self,
         content: bytes,
         filename: str,
+        content_type: str | None,
         course_id: int,
         chapter_id: int | None,
         uploaded_by: int | None,
     ) -> Document:
         try:
             file_type = parsers.detect_file_type(filename)
+            parsers.validate_mime(file_type, content_type)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 

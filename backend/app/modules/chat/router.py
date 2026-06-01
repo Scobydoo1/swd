@@ -18,15 +18,18 @@ from app.modules.chat.schemas import (
 from app.modules.chat.service import ChatService
 from app.modules.users.models import Role
 from app.shared.dependencies import get_current_user
+from app.shared.rate_limit import chat_rate_limit
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
+# FR-USR-02 / FR-USR-03: Chat hỏi đáp RAG -> answer + citations.
+# §12: rate-limited để tránh lạm dụng (chat_rate_limit cũng xác thực user).
 @router.post("/chat", response_model=ChatResponse)
 def chat(
     req: ChatRequest,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(chat_rate_limit),
 ):
     return ChatService(db).answer(req, user_id=user.id)
 
@@ -42,6 +45,7 @@ def create_session(
     )
 
 
+# FR-USR-04: Danh sách phiên chat của chính mình (Admin xem tất cả).
 @router.get("/sessions", response_model=list[SessionOut])
 def list_sessions(
     db: Session = Depends(get_db),
@@ -52,6 +56,7 @@ def list_sessions(
     )
 
 
+# FR-USR-04: Lịch sử messages của một phiên (Owner hoặc Admin).
 @router.get("/sessions/{session_id}", response_model=SessionDetail)
 def get_session(
     session_id: int,

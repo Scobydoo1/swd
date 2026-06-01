@@ -1,16 +1,18 @@
-"""Facade: che giấu embedder (LlmClient) + VectorStore khỏi các module khác."""
-from app.llm.client import LlmClient
+"""Facade: che giấu embedder + vector_store + retriever khỏi các module khác.
+
+Các module nghiệp vụ (documents, chat) chỉ dùng RagFacade, không chạm trực
+tiếp vào embedder/vector store/retriever.
+"""
+from app.modules.rag.embedder import Embedder
+from app.modules.rag.retriever import Retriever
 from app.modules.rag.vector_store import VectorStore
 
 
-class Citation(dict):
-    pass
-
-
 class RagFacade:
-    def __init__(self):
-        self.llm = LlmClient()
+    def __init__(self) -> None:
+        self.embedder = Embedder()
         self.store = VectorStore()
+        self.retriever = Retriever(self.embedder, self.store)
 
     def index_chunks(
         self,
@@ -22,7 +24,7 @@ class RagFacade:
         if not chunks:
             return 0
         texts = [c["text"] for c in chunks]
-        embeddings = self.llm.embed(texts)
+        embeddings = self.embedder.embed(texts)
         ids = [f"{document_id}-{c['chunk_index']}" for c in chunks]
         metadatas = [
             {
@@ -40,18 +42,7 @@ class RagFacade:
     def retrieve(
         self, query: str, k: int = 4, course_id: int | None = None
     ) -> list[dict]:
-        embedding = self.llm.embed([query])[0]
-        where = {"course_id": course_id} if course_id is not None else None
-        results = self.store.query(embedding, k=k, where=where)
-        return [
-            {
-                "source_text": r["text"],
-                "document_name": r["meta"].get("document_name", ""),
-                "page": r["meta"].get("page"),
-                "score": round(r["score"], 4),
-            }
-            for r in results
-        ]
+        return self.retriever.search(query, k=k, course_id=course_id)
 
     def delete_document(self, document_id: int) -> None:
         self.store.delete_document(document_id)

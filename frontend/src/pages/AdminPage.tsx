@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
-import type { Role, User } from "../types";
+import { IconSidebar } from "../components/Icons";
+import type { Plan, Role, User } from "../types";
 
 const roleLabel: Record<Role, string> = {
   ADMIN: "Quản trị viên",
@@ -14,6 +16,7 @@ const roleBadge: Record<Role, string> = {
 };
 
 export function AdminPage() {
+  const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const [users, setUsers] = useState<User[]>([]);
 
   const load = () => api.get<User[]>("/users").then((r) => setUsers(r.data));
@@ -26,30 +29,44 @@ export function AdminPage() {
     load();
   };
 
+  const changePlan = async (id: number, plan: Plan) => {
+    await api.patch(`/users/${id}/plan`, { plan });
+    load();
+  };
+
   return (
-    <div className="h-full overflow-y-auto p-8">
+    <div className="h-full overflow-y-auto p-4 sm:p-8">
       <div className="mx-auto max-w-4xl">
         <header className="mb-6">
-          <h1 className="font-display text-2xl font-bold text-ink">
-            Quản lý người dùng
-          </h1>
-          <p className="text-sm text-ink-faint">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openSidebar()}
+              className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
+              title="Mở thanh bên"
+            >
+              <IconSidebar size={19} />
+            </button>
+            <h1 className="font-display text-2xl font-bold text-ink">
+              Quản lý người dùng
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-ink-faint">
             Xem danh sách và phân quyền cho người dùng trong hệ thống.
           </p>
         </header>
 
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
-          <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-            <div className="col-span-5">Người dùng</div>
-            <div className="col-span-3">Vai trò hiện tại</div>
-            <div className="col-span-4 text-right">Đổi vai trò</div>
+          <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint sm:px-5">
+            <div className="col-span-12 sm:col-span-4">Người dùng</div>
+            <div className="hidden sm:col-span-4 sm:block">Vai trò</div>
+            <div className="hidden sm:col-span-4 sm:block">Gói đăng ký</div>
           </div>
           {users.map((u) => (
             <div
               key={u.id}
-              className="grid grid-cols-12 items-center gap-3 border-b border-line-soft px-5 py-3.5 transition last:border-0 hover:bg-surface-2/50"
+              className="grid grid-cols-12 items-center gap-3 border-b border-line-soft px-4 py-3.5 transition last:border-0 hover:bg-surface-2/50 sm:px-5"
             >
-              <div className="col-span-5 flex items-center gap-3">
+              <div className="col-span-12 flex items-center gap-3 sm:col-span-4">
                 <div className="avatar avatar-user sm">
                   {u.full_name.charAt(0)}
                 </div>
@@ -59,23 +76,32 @@ export function AdminPage() {
                   </p>
                   <p className="truncate text-xs text-ink-faint">{u.email}</p>
                 </div>
-              </div>
-              <div className="col-span-3">
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-bold ${roleBadge[u.role]}`}
+                  className={`ml-auto flex-none rounded-full px-2 py-0.5 text-[10px] font-bold sm:hidden ${roleBadge[u.role]}`}
                 >
                   {roleLabel[u.role]}
                 </span>
               </div>
-              <div className="col-span-4 text-right">
+              <div className="col-span-6 sm:col-span-4">
                 <select
                   value={u.role}
                   onChange={(e) => changeRole(u.id, e.target.value as Role)}
-                  className="rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
+                  className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
                 >
                   <option value="USER">Sinh viên</option>
                   <option value="LECTURER">Giảng viên</option>
                   <option value="ADMIN">Quản trị viên</option>
+                </select>
+              </div>
+              <div className="col-span-6 sm:col-span-4">
+                <select
+                  value={u.plan}
+                  onChange={(e) => changePlan(u.id, e.target.value as Plan)}
+                  className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
+                >
+                  <option value="FREE">Free</option>
+                  <option value="PRO">Pro</option>
+                  <option value="MAX">Max</option>
                 </select>
               </div>
             </div>
