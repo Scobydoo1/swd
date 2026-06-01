@@ -1,58 +1,69 @@
-# EduRAG — Course Document RAG Chatbot
+# Maple — Course Document RAG Chatbot
 
-Web app chatbot hỏi đáp dựa trên tài liệu môn học (RAG). Người dùng upload tài liệu bài giảng (PDF/DOCX/Slide), hệ thống tự động chunk + embed, và trả lời câu hỏi **chỉ trong phạm vi tài liệu**, có trích dẫn nguồn.
+Web app chatbot hỏi đáp dựa trên tài liệu môn học (RAG). Người dùng upload tài liệu bài giảng (PDF/DOCX/Slide), hệ thống tự động chunk + embed, và trả lời câu hỏi **chỉ trong phạm vi tài liệu**, có trích dẫn nguồn. Cùng một codebase chạy được cả **website** lẫn **app Android cài đặt** (Capacitor).
 
 Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and Software Architectures*.
 
-> Yêu cầu gốc của dự án: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)
+> Tài liệu thiết kế đầy đủ: [CLAUDE.md](CLAUDE.md)
+
+---
 
 ## Tính năng
 
-- **Quản lý tài liệu:** upload PDF/DOCX/PPTX, tự động chunk & embed, quản lý theo môn học, xem danh sách đã index.
-- **Chat & Hỏi đáp:** chat theo ngữ cảnh, trích dẫn nguồn, giới hạn trả lời trong tài liệu, lịch sử theo phiên.
-- **Phân quyền 3 actor:** Admin (toàn quyền + quản lý người dùng), Lecturer (quản lý tài liệu/môn học), User (chat + xem).
+| Tính năng | Mô tả |
+|-----------|-------|
+| **Chat & Hỏi đáp RAG** | Chat theo ngữ cảnh hội thoại, trích dẫn nguồn, giới hạn trong tài liệu đã index |
+| **Quản lý tài liệu** | Upload PDF/DOCX/PPTX → tự động chunk & embed, xem trạng thái (PROCESSING / INDEXED / FAILED) |
+| **Quiz trắc nghiệm** | Lecturer tạo quiz; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng |
+| **Gói dịch vụ** | 3 gói Free / Pro / Max, rate-limit chat theo gói, nâng cấp tự phục vụ |
+| **Phân quyền 3 actor** | Admin (toàn quyền), Lecturer (tài liệu + quiz + môn học), User/Student (chat + làm quiz) |
+| **App Android** | APK cài đặt từ cùng codebase React, build qua Capacitor |
+
+---
 
 ## Kiến trúc
 
-**Modular Monolith** — chi tiết hướng dẫn trong [CLAUDE.md](CLAUDE.md).
+**Modular Monolith** — một process FastAPI, module nghiệp vụ rõ ràng.
 
 | Layer | Công nghệ |
 |-------|-----------|
-| Frontend | React + Vite + TypeScript + Tailwind CSS |
-| Backend | Python + FastAPI |
-| LLM / Embedding | Google Gemini (gemini-2.5-flash / gemini-embedding-001) |
-| Vector store | ChromaDB |
-| Metadata DB | SQLite |
+| Frontend | React 18 + Vite + TypeScript + Tailwind CSS |
+| Mobile | Capacitor 8 (Android APK từ cùng codebase web) |
+| Backend | Python 3.11+ / FastAPI |
+| LLM | Google Gemini 2.5 Flash (có thể dùng `local` mode không cần key) |
+| Embedding | Google gemini-embedding-001 (hoặc local hash-based khi keyless) |
+| Vector store | ChromaDB (embedded/local) |
+| Metadata DB | SQLite (SQLAlchemy) |
+| Auth | JWT (role-based: ADMIN / LECTURER / USER) |
 
 ---
 
 # Thiết kế hệ thống
 
-> Tất cả sơ đồ vẽ bằng **Mermaid** — xem trực tiếp trên GitHub hoặc VS Code (Mermaid Preview).
-> Bản đầy đủ kèm chú thích: [docs/DESIGN.md](docs/DESIGN.md).
+> Sơ đồ vẽ bằng **Mermaid** — xem trực tiếp trên GitHub.
 
-Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and Software Architectures*.
-
-## 1. Use Case Diagram (3 Actor: Admin, Lecturer, User)
+## 1. Use Case Diagram
 
 ```mermaid
 graph LR
     Admin([👑 Admin])
     Lecturer([🎓 Lecturer])
-    User([👤 User / Student])
+    User([👤 Student])
 
-    subgraph "Hệ thống RAG Chatbot"
+    subgraph "Maple RAG Chatbot"
         UC1[Đăng nhập / Đăng ký]
-        UC2[Quản lý người dùng & phân quyền]
+        UC2[Quản lý người dùng & role & plan]
         UC3[Quản lý môn học / chương]
         UC4[Upload tài liệu PDF/DOCX/Slide]
         UC5[Xem danh sách tài liệu đã index]
         UC6[Xóa tài liệu]
         UC7[Chat hỏi đáp theo ngữ cảnh]
         UC8[Xem trích dẫn nguồn]
-        UC9[Quản lý phiên chat của mình]
+        UC9[Quản lý phiên chat]
         UC10[Xem thống kê / lịch sử toàn hệ thống]
-        UC11[Cấu hình hệ thống]
+        UC11[Tạo & quản lý Quiz]
+        UC12[Làm Quiz & xem điểm]
+        UC13[Xem & nâng cấp gói dịch vụ]
     end
 
     User --> UC1
@@ -60,6 +71,8 @@ graph LR
     User --> UC7
     User --> UC8
     User --> UC9
+    User --> UC12
+    User --> UC13
 
     Lecturer --> UC1
     Lecturer --> UC3
@@ -69,6 +82,9 @@ graph LR
     Lecturer --> UC7
     Lecturer --> UC8
     Lecturer --> UC9
+    Lecturer --> UC11
+    Lecturer --> UC12
+    Lecturer --> UC13
 
     Admin --> UC1
     Admin --> UC2
@@ -80,22 +96,11 @@ graph LR
     Admin --> UC9
     Admin --> UC10
     Admin --> UC11
+    Admin --> UC12
+    Admin --> UC13
 ```
 
-**Quan hệ `<<include>>` / `<<extend>>`:**
-
-```mermaid
-graph LR
-    UC4[Upload tài liệu] -. include .-> UC4a[Chunk & Embed tự động]
-    UC4a -. include .-> UC4b[Lưu vector vào ChromaDB]
-    UC7[Chat hỏi đáp] -. include .-> UC7a[Retrieve chunks liên quan]
-    UC7 -. include .-> UC8[Trích dẫn nguồn]
-    UC7 -. extend .-> UC7b[Trả lời 'Không có trong tài liệu']
-```
-
-> **Phân quyền tóm tắt:** User = chat + xem; Lecturer = User + quản lý tài liệu/môn học của mình; Admin = toàn quyền + quản lý người dùng + cấu hình.
-
-## 2. Class Diagram (UML — Domain Model)
+## 2. Class Diagram (Domain Model)
 
 ```mermaid
 classDiagram
@@ -105,6 +110,7 @@ classDiagram
         +str password_hash
         +str full_name
         +Role role
+        +Plan plan
         +datetime created_at
     }
     class Role {
@@ -112,6 +118,12 @@ classDiagram
         ADMIN
         LECTURER
         USER
+    }
+    class Plan {
+        <<enumeration>>
+        FREE
+        PRO
+        MAX
     }
     class Course {
         +int id
@@ -136,18 +148,6 @@ classDiagram
         +int num_chunks
         +datetime created_at
     }
-    class FileType {
-        <<enumeration>>
-        PDF
-        DOCX
-        PPTX
-    }
-    class Status {
-        <<enumeration>>
-        PROCESSING
-        INDEXED
-        FAILED
-    }
     class ChatSession {
         +int id
         +int user_id
@@ -162,96 +162,45 @@ classDiagram
         +json citations
         +datetime created_at
     }
-    class Citation {
-        +str source_text
-        +str document_name
-        +int page
+    class Quiz {
+        +int id
+        +int course_id
+        +int created_by
+        +str title
+        +datetime created_at
+    }
+    class Question {
+        +int id
+        +int quiz_id
+        +str text
+        +json options
+        +int correct_index
+    }
+    class QuizAttempt {
+        +int id
+        +int quiz_id
+        +int user_id
         +float score
+        +json answers
+        +datetime created_at
     }
 
-    User "1" --> "0..*" Course : owns (Lecturer)
+    User --> Role
+    User --> Plan
+    User "1" --> "0..*" Course : owns
     User "1" --> "0..*" Document : uploads
     User "1" --> "0..*" ChatSession : has
+    User "1" --> "0..*" Quiz : creates
+    User "1" --> "0..*" QuizAttempt : attempts
     Course "1" --> "0..*" Chapter
     Course "1" --> "0..*" Document
-    Chapter "1" --> "0..*" Document
+    Course "1" --> "0..*" Quiz
     ChatSession "1" --> "0..*" Message
-    Message "1" --> "0..*" Citation : contains
-    User --> Role
-    Document --> FileType
-    Document --> Status
+    Quiz "1" --> "1..*" Question
+    Quiz "1" --> "0..*" QuizAttempt
 ```
 
-## 3. Class Diagram (UML — Lớp ứng dụng theo Module)
-
-```mermaid
-classDiagram
-    class DocumentRouter {
-        +upload(file, course_id)
-        +list()
-        +delete(id)
-    }
-    class DocumentService {
-        -repo: DocumentRepository
-        -rag: RagFacade
-        +ingest(file, course_id) Document
-        +list_documents() list
-    }
-    class DocumentRepository {
-        +create(doc) Document
-        +get_all() list
-        +update_status(id, status)
-    }
-    class Parser {
-        <<interface>>
-        +parse(file) str
-    }
-    class PdfParser
-    class DocxParser
-    class PptxParser
-
-    class ChatRouter {
-        +ask(question, session_id)
-        +get_sessions()
-    }
-    class ChatService {
-        -repo: ChatRepository
-        -rag: RagFacade
-        -llm: LlmClient
-        +answer(q, session_id) ChatResponse
-    }
-    class RagFacade {
-        -embedder: Embedder
-        -store: VectorStore
-        +index_chunks(chunks)
-        +retrieve(query, k) list~Citation~
-    }
-    class Embedder {
-        +embed(texts) list
-    }
-    class VectorStore {
-        +add(vectors, meta)
-        +query(vector, k) list
-    }
-    class LlmClient {
-        +chat(messages) str
-    }
-
-    DocumentRouter --> DocumentService
-    DocumentService --> DocumentRepository
-    DocumentService --> RagFacade
-    DocumentService --> Parser
-    Parser <|.. PdfParser
-    Parser <|.. DocxParser
-    Parser <|.. PptxParser
-    ChatRouter --> ChatService
-    ChatService --> RagFacade
-    ChatService --> LlmClient
-    RagFacade --> Embedder
-    RagFacade --> VectorStore
-```
-
-## 4. Sequence Diagram — Upload & Ingest tài liệu (Lecturer/Admin)
+## 3. Sequence Diagram — Upload & Ingest tài liệu
 
 ```mermaid
 sequenceDiagram
@@ -261,7 +210,7 @@ sequenceDiagram
     participant S as DocumentService
     participant P as Parser (Strategy)
     participant RAG as RagFacade
-    participant E as Google Embedding
+    participant E as Embedder
     participant C as ChromaDB
     participant DB as SQLite
 
@@ -276,62 +225,86 @@ sequenceDiagram
     RAG->>E: embed(chunks)
     E-->>RAG: vectors
     RAG->>C: add(vectors, metadata)
-    S->>DB: update status=INDEXED, num_chunks
-    S-->>R: Document
+    S->>DB: update status=INDEXED
     R-->>FE: 201 Created
-    FE-->>L: Hiển thị "Đã index xong"
+    FE-->>L: "Đã index xong"
 ```
 
-## 5. Sequence Diagram — Chat hỏi đáp (RAG Query)
+## 4. Sequence Diagram — Chat hỏi đáp (RAG Query)
 
 ```mermaid
 sequenceDiagram
-    actor U as User
+    actor U as Student
     participant FE as React UI
     participant R as ChatRouter
     participant S as ChatService
     participant RAG as RagFacade
-    participant E as Google Embedding
+    participant E as Embedder
     participant C as ChromaDB
-    participant LLM as Google Gemini 2.5 Flash
+    participant LLM as Gemini LLM
     participant DB as SQLite
 
     U->>FE: Nhập câu hỏi
     FE->>R: POST /api/chat {question, session_id}
     R->>S: answer(question, session_id)
     S->>DB: lấy lịch sử hội thoại
-    S->>S: condense -> standalone question
     S->>RAG: retrieve(question, k=4)
     RAG->>E: embed(question)
-    E-->>RAG: query_vector
-    RAG->>C: query(query_vector, k=4, filter course_id)
+    RAG->>C: similarity search (filter course_id)
     C-->>RAG: top chunks + metadata
-    RAG-->>S: citations
     S->>LLM: chat(system + context + history + question)
     LLM-->>S: answer
-    alt Không có thông tin trong context
-        S-->>R: "Không tìm thấy trong tài liệu"
-    else Có thông tin
-        S->>DB: lưu user + assistant message
-        S-->>R: {answer, citations}
-    end
-    R-->>FE: ChatResponse
-    FE-->>U: Hiển thị câu trả lời + nguồn trích dẫn
+    S->>DB: lưu user + assistant message
+    R-->>FE: {answer, citations}
+    FE-->>U: Câu trả lời + trích dẫn nguồn
 ```
 
-## 6. Component / Architecture Diagram (Modular Monolith)
+## 5. Sequence Diagram — Làm Quiz & Chấm điểm
+
+```mermaid
+sequenceDiagram
+    actor S as Student
+    participant FE as React UI
+    participant R as QuizRouter
+    participant SV as QuizService
+    participant DB as SQLite
+
+    S->>FE: Mở quiz
+    FE->>R: GET /api/quizzes/{id}
+    R->>SV: get_quiz(id)
+    SV->>DB: lấy quiz + questions
+    SV-->>R: đề bài (ẩn correct_index)
+    R-->>FE: QuizDetail
+
+    S->>FE: Chọn đáp án & Nộp bài
+    FE->>R: POST /api/quizzes/{id}/submit {answers}
+    R->>SV: submit(id, answers, user_id)
+    SV->>DB: lấy questions (có correct_index)
+    SV->>SV: chấm điểm từng câu
+    SV->>DB: lưu QuizAttempt
+    SV-->>R: {score, correct, total, results[]}
+    R-->>FE: AttemptResult
+    FE-->>S: Kết quả + đáp án đúng
+```
+
+## 6. Component / Architecture Diagram
 
 ```mermaid
 graph TB
     subgraph Client["🖥️ Frontend — React (Vite + TS + Tailwind)"]
         CP[ChatPage]
         DP[DocumentsPage]
-        AP[Admin / Users Page]
+        QP[QuizzesPage]
+        PP[PricingPage]
+        AP[AdminPage]
     end
 
-    subgraph Backend["⚙️ Backend — FastAPI (Modular Monolith, 1 process)"]
-        direction TB
-        API[API Layer / Routers + CORS]
+    subgraph Android["📱 Android App (Capacitor)"]
+        APK[APK — webview bọc dist/]
+    end
+
+    subgraph Backend["⚙️ Backend — FastAPI (Modular Monolith)"]
+        API[API Layer / Routers + CORS + JWT]
 
         subgraph Modules["Business Modules"]
             AUTH[auth]
@@ -339,11 +312,14 @@ graph TB
             DOCS[documents]
             COURSES[courses]
             CHAT[chat]
+            QUIZ[quizzes]
+            SUB[subscriptions]
         end
 
         subgraph Shared["Shared Services"]
-            RAG[rag: Embedder + Retriever + VectorStore Facade]
-            LLMW[llm: Google Gemini client]
+            RAG[rag: Embedder + Retriever + Facade]
+            LLMW[llm: Gemini client]
+            RL[rate_limit: plan-aware]
         end
     end
 
@@ -352,58 +328,35 @@ graph TB
         CHROMA[(ChromaDB — vectors)]
     end
 
-    subgraph External["☁️ External"]
-        GEMINI[Google Gemini API]
-    end
-
     Client -->|REST /api| API
-    API --> AUTH & USERS & DOCS & COURSES & CHAT
+    Android -->|REST http://10.0.2.2:8000/api| API
+    API --> AUTH & USERS & DOCS & COURSES & CHAT & QUIZ & SUB
     DOCS --> RAG
     CHAT --> RAG
     CHAT --> LLMW
+    CHAT --> RL
+    RL --> USERS
     AUTH --> USERS
-    DOCS --> SQLITE
-    USERS --> SQLITE
-    COURSES --> SQLITE
-    CHAT --> SQLITE
+    DOCS & USERS & COURSES & CHAT & QUIZ --> SQLITE
     RAG --> CHROMA
-    RAG --> GEMINI
-    LLMW --> GEMINI
 ```
 
-## 7. Design Patterns
-
-| Pattern | Vấn đề giải quyết | Áp dụng |
-|---------|-------------------|---------|
-| **Layered / Repository** | Tách biệt HTTP / nghiệp vụ / dữ liệu | Mọi module |
-| **Strategy** | Xử lý nhiều định dạng file khác nhau | `parsers.py` (PDF/DOCX/PPTX) |
-| **Facade** | Đơn giản hóa subsystem RAG phức tạp | `rag/` module |
-| **Dependency Injection** | Loose coupling, dễ test | FastAPI `Depends` |
-| **DTO** | Tách API contract khỏi DB schema | Pydantic schemas |
-| **Pipeline** | Chuỗi xử lý tuần tự rõ ràng | RAG ingest & query |
-| **RBAC (Role-Based Access)** | Phân quyền 3 actor | `require_role()` dependency |
-
-## 8. Deployment View
-
-```mermaid
-graph LR
-    Browser[Trình duyệt] -->|HTTPS| Static[React build / Static host]
-    Browser -->|REST API| FastAPI[FastAPI process]
-    FastAPI --> Files[(File system:<br/>app.db + chroma/)]
-    FastAPI -->|HTTPS| GEMINI[Google Gemini API]
-```
-
-## 9. ERD — Lược đồ quan hệ dữ liệu (SQLite)
+## 7. ERD — Lược đồ quan hệ dữ liệu
 
 ```mermaid
 erDiagram
     USER ||--o{ COURSE : "owns (Lecturer)"
     USER ||--o{ DOCUMENT : uploads
     USER ||--o{ CHATSESSION : has
+    USER ||--o{ QUIZ : creates
+    USER ||--o{ QUIZATTEMPT : attempts
     COURSE ||--o{ CHAPTER : contains
     COURSE ||--o{ DOCUMENT : groups
+    COURSE ||--o{ QUIZ : groups
     CHAPTER ||--o{ DOCUMENT : "optional"
     CHATSESSION ||--o{ MESSAGE : contains
+    QUIZ ||--|{ QUESTION : has
+    QUIZ ||--o{ QUIZATTEMPT : records
 
     USER {
         int id PK
@@ -411,29 +364,29 @@ erDiagram
         string password_hash
         string full_name
         enum role "ADMIN|LECTURER|USER"
+        enum plan "FREE|PRO|MAX"
         datetime created_at
     }
-    COURSE {
-        int id PK
-        string name
-        string description
-        int owner_id FK
-    }
-    CHAPTER {
+    QUIZ {
         int id PK
         int course_id FK
+        int created_by FK
         string title
-        int order
+        datetime created_at
     }
-    DOCUMENT {
+    QUESTION {
         int id PK
-        int course_id FK
-        int chapter_id FK "nullable"
-        int uploaded_by FK
-        string filename
-        enum file_type "PDF|DOCX|PPTX"
-        enum status "PROCESSING|INDEXED|FAILED"
-        int num_chunks
+        int quiz_id FK
+        string text
+        json options
+        int correct_index
+    }
+    QUIZATTEMPT {
+        int id PK
+        int quiz_id FK
+        int user_id FK
+        float score
+        json answers
         datetime created_at
     }
     CHATSESSION {
@@ -452,96 +405,88 @@ erDiagram
     }
 ```
 
-## 10. State Diagram — Vòng đời tài liệu (Document)
+## 8. State Diagram — Vòng đời tài liệu
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PROCESSING : upload (lưu metadata)
+    [*] --> PROCESSING : upload
     PROCESSING --> INDEXED : parse + chunk + embed thành công
-    PROCESSING --> FAILED : lỗi parse / embed (quota, định dạng)
+    PROCESSING --> FAILED : lỗi parse / embed
     FAILED --> PROCESSING : upload lại
-    INDEXED --> [*] : xóa tài liệu (kèm vector trong ChromaDB)
+    INDEXED --> [*] : xóa tài liệu
     FAILED --> [*] : xóa tài liệu
 ```
 
-## 11. Activity Diagram — Luồng xử lý câu hỏi (RAG Query)
+## 9. Design Patterns
 
-```mermaid
-flowchart TD
-    A([User gửi câu hỏi]) --> B[Lấy lịch sử hội thoại của phiên]
-    B --> C{Có lịch sử?}
-    C -- Có --> D[Condense: gộp lịch sử + câu hỏi<br/>thành standalone question]
-    C -- Không --> E[Dùng nguyên câu hỏi]
-    D --> F[Embed câu hỏi → query vector]
-    E --> F
-    F --> G[Similarity search ChromaDB<br/>top-k=4, filter theo course_id]
-    G --> H{Có chunk liên quan?}
-    H -- Không --> I[Trả lời: 'Không tìm thấy trong tài liệu']
-    H -- Có --> J[Build prompt:<br/>system + context + history + câu hỏi]
-    J --> K[Gọi Gemini LLM]
-    K --> L[Sinh câu trả lời + gắn citations]
-    L --> M[Lưu user + assistant message vào phiên]
-    I --> M
-    M --> N([Trả về answer + citations cho UI])
-```
-
-## 12. Package / Module Diagram (cấu trúc backend)
-
-```mermaid
-graph TD
-    MAIN[app.main<br/>FastAPI app, mount routers, CORS]
-    CONFIG[app.config<br/>Settings từ .env]
-    DB[app.database<br/>SQLAlchemy engine/session]
-    SHARED[app.shared<br/>exceptions, dependencies, require_role]
-
-    subgraph modules
-        AUTH[auth]
-        USERS[users]
-        COURSES[courses]
-        DOCUMENTS[documents]
-        CHAT[chat]
-        RAG[rag]
-    end
-    LLM[app.llm<br/>Gemini client]
-
-    MAIN --> AUTH & USERS & COURSES & DOCUMENTS & CHAT
-    MAIN --> CONFIG
-    AUTH --> USERS
-    AUTH --> SHARED
-    USERS --> DB
-    COURSES --> DB
-    DOCUMENTS --> DB
-    DOCUMENTS --> RAG
-    DOCUMENTS --> SHARED
-    CHAT --> DB
-    CHAT --> RAG
-    CHAT --> LLM
-    CHAT --> SHARED
-    RAG --> LLM
-    RAG --> CONFIG
-    LLM --> CONFIG
-```
+| Pattern | Áp dụng |
+|---------|---------|
+| **Layered / Repository** | Mọi module: router → service → repository |
+| **Strategy** | `parsers.py` — chọn parser theo file type (PDF/DOCX/PPTX) |
+| **Facade** | `rag/` module — che giấu embedder + vector_store + retriever |
+| **Dependency Injection** | FastAPI `Depends` inject service/repo/session |
+| **DTO** | Pydantic schemas tách biệt model DB và API contract |
+| **Pipeline** | RAG ingest & query — chuỗi bước rõ ràng |
+| **RBAC** | `require_role()` dependency — phân quyền 3 actor |
 
 ---
 
-## Cài đặt & chạy
+## Cài đặt & Chạy
+
+### Yêu cầu
+
+- Python 3.11+
+- Node.js 18+
+- (Tuỳ chọn) Google API Key để dùng Gemini — không cần nếu dùng mode `local`
 
 ### 1. Backend
 
 ```bash
 cd backend
 python -m venv .venv
-# Windows: .venv\Scripts\activate   |   macOS/Linux: source .venv/bin/activate
+
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
+source .venv/bin/activate
+
 pip install -r requirements.txt
 
-cp .env.example .env        # rồi điền GOOGLE_API_KEY
-python seed.py              # tạo 3 user demo + môn học demo
+cp .env.example .env   # xem hướng dẫn env bên dưới
+
+python seed.py         # tạo 3 user demo + môn học + quiz mẫu
+
 uvicorn app.main:app --reload --port 8000
+# Hoặc mở cho điện thoại/emulator truy cập:
+uvicorn app.main:app --host 0.0.0.0 --reload --port 8000
 ```
 
 API docs: http://localhost:8000/docs
 
-### 2. Frontend
+**Cấu hình `.env`:**
+
+```env
+# Để mode "local" (không cần key) — AI trả lời bằng placeholder, RAG vẫn hoạt động
+EMBED_PROVIDER=local
+LLM_PROVIDER=local
+
+# Hoặc dùng Gemini thật:
+GOOGLE_API_KEY=AIza...
+EMBED_PROVIDER=gemini
+LLM_PROVIDER=gemini
+GOOGLE_CHAT_MODEL=gemini-2.5-flash
+GOOGLE_EMBED_MODEL=gemini-embedding-001
+
+CHROMA_DIR=./data/chroma
+DATABASE_URL=sqlite:///./data/app.db
+JWT_SECRET=change-me-in-production
+JWT_EXPIRE_MINUTES=720
+
+# CORS: thêm origin localhost cho app Capacitor (Android)
+CORS_ORIGINS=http://localhost:5173,http://localhost,https://localhost,capacitor://localhost
+```
+
+### 2. Frontend (Web)
 
 ```bash
 cd frontend
@@ -551,46 +496,112 @@ npm run dev
 
 Mở http://localhost:5173
 
+### 3. Android APK (Capacitor)
+
+> Yêu cầu: Android Studio đã cài (mang theo JDK + SDK).
+
+```bash
+cd frontend
+npm install
+
+# Build APK debug cho emulator (backend trên máy host)
+$env:VITE_API_BASE = "http://10.0.2.2:8000/api"   # PowerShell
+# export VITE_API_BASE="http://10.0.2.2:8000/api"  # bash
+
+npm run cap:apk
+# APK output: android/app/build/outputs/apk/debug/app-debug.apk
+
+# Hoặc mở Android Studio để build/run trực tiếp:
+npm run cap:sync
+npm run cap:open
+```
+
+**Điện thoại thật cùng Wi-Fi:** thay `10.0.2.2` bằng IP LAN của máy chạy backend (ví dụ `192.168.100.6`), và backend phải chạy với `--host 0.0.0.0`.
+
+**Live-reload khi dev** (không cần rebuild APK): mở comment dòng `server.url` trong [frontend/capacitor.config.ts](frontend/capacitor.config.ts) trỏ về Vite dev server.
+
 ### Tài khoản demo
 
-| Vai trò | Email | Mật khẩu |
-|---------|-------|----------|
-| Admin | admin@demo.com | admin123 |
-| Lecturer | lecturer@demo.com | lecturer123 |
-| User | student@demo.com | student123 |
+| Vai trò | Email | Mật khẩu | Gói |
+|---------|-------|----------|-----|
+| Admin | admin@demo.com | admin123 | MAX |
+| Lecturer | lecturer@demo.com | lecturer123 | PRO |
+| Student | student@demo.com | student123 | FREE |
+
+---
 
 ## Quy trình sử dụng
 
-1. Đăng nhập bằng tài khoản **Lecturer** hoặc **Admin**.
-2. Vào **Tài liệu** → upload file PDF/DOCX/PPTX (ví dụ textbook môn học). Đợi trạng thái chuyển sang *Đã index*.
-3. Vào **Hỏi đáp** → chọn môn học → đặt câu hỏi. Câu trả lời kèm trích dẫn nguồn.
-4. Tài khoản **Admin** có thêm trang **Người dùng** để phân quyền.
+**Hỏi đáp RAG:**
+1. Đăng nhập Lecturer → vào **Tài liệu** → upload PDF/DOCX/PPTX. Đợi trạng thái *Đã index*.
+2. Đăng nhập Student → vào **Hỏi đáp** → chọn môn → đặt câu hỏi → nhận câu trả lời kèm trích dẫn.
+
+**Quiz:**
+1. Lecturer → **Quiz** → **Tạo quiz** → điền câu hỏi + đáp án → lưu.
+2. Student → **Quiz** → **Làm bài** → chọn đáp án → **Nộp bài** → xem điểm + đáp án đúng tức thì.
+
+**Gói dịch vụ:**
+- Vào **Gói dịch vụ** → xem Free / Pro / Max → nâng cấp.
+- Admin → trang **Người dùng** → cột Plan → đổi gói bất kỳ user.
+
+---
 
 ## Đánh giá (Test set 50 câu)
 
-Sau khi đã index tài liệu textbook vào môn học (id=1):
+Sau khi đã index tài liệu textbook:
 
 ```bash
 cd backend
 python -m tests.evaluate --course-id 1
+# Tuỳ chọn:
+# --limit 10      chỉ chạy 10 câu đầu
+# --delay 2       nghỉ 2s giữa mỗi câu (tránh rate-limit)
 ```
 
 - Test set: [backend/tests/test_set.json](backend/tests/test_set.json) — 50 câu hỏi + ground truth.
-- Script chạy 50 câu qua chatbot, dùng LLM-as-judge so với ground truth, in accuracy và lưu `tests/eval_result.json`.
+- Dùng LLM-as-judge so với ground truth, in accuracy, lưu `tests/eval_result.json`.
+
+---
 
 ## Cấu trúc thư mục
 
 ```
-project/
-├── readme.md            # File này
-├── CLAUDE.md            # Tài liệu thiết kế & hướng dẫn chi tiết
-├── docs/
-│   ├── DESIGN.md        # Sơ đồ UML, Use Case, Architecture, Patterns
-│   └── REQUIREMENTS.md  # Yêu cầu gốc
-├── backend/             # FastAPI (Modular Monolith)
-│   ├── app/modules/     # auth, users, courses, documents, chat, rag
-│   ├── seed.py
-│   └── tests/           # test_set.json + evaluate.py
-└── frontend/            # React + Vite + Tailwind
-    └── src/pages/       # ChatPage, DocumentsPage, AdminPage, LoginPage
+swd/
+├── README.md
+├── CLAUDE.md                    # Spec đầy đủ + hướng dẫn cho Claude Code
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # FastAPI app, CORS, mount routers
+│   │   ├── config.py            # Settings từ .env
+│   │   ├── database.py          # SQLAlchemy engine/session
+│   │   ├── shared/              # dependencies, exceptions
+│   │   └── modules/
+│   │       ├── auth/            # Đăng nhập, JWT
+│   │       ├── users/           # Quản lý user, role, plan
+│   │       ├── courses/         # Môn học, chương
+│   │       ├── documents/       # Upload, ingest, parsers
+│   │       ├── chat/            # Chat RAG, sessions
+│   │       ├── rag/             # Embedder, VectorStore, Retriever, Facade
+│   │       ├── quizzes/         # Quiz, Question, QuizAttempt
+│   │       └── subscriptions/   # Gói Free/Pro/Max
+│   ├── seed.py                  # Seed 3 user + môn học + quiz mẫu
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── tests/
+│       ├── test_set.json        # 50 câu hỏi + ground truth
+│       └── evaluate.py          # Script đánh giá
+└── frontend/
+    ├── src/
+    │   ├── pages/
+    │   │   ├── ChatPage.tsx
+    │   │   ├── DocumentsPage.tsx
+    │   │   ├── QuizzesPage.tsx  # Tạo quiz (Lecturer) + làm bài (Student)
+    │   │   ├── PricingPage.tsx  # Gói dịch vụ
+    │   │   └── AdminPage.tsx
+    │   ├── api/client.ts        # Axios + VITE_API_BASE (web & APK)
+    │   └── auth/AuthContext.tsx
+    ├── capacitor.config.ts      # Cấu hình Capacitor / Android
+    ├── android/                 # Native Android project (Capacitor)
+    ├── package.json
+    └── vite.config.ts
 ```
