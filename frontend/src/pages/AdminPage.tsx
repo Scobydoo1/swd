@@ -1,14 +1,10 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
+import { useLang } from "../i18n/LanguageContext";
 import { IconSidebar } from "../components/Icons";
 import type { Plan, Role, User } from "../types";
 
-const roleLabel: Record<Role, string> = {
-  ADMIN: "Quản trị viên",
-  LECTURER: "Giảng viên",
-  USER: "Sinh viên",
-};
 const roleBadge: Record<Role, string> = {
   ADMIN: "bg-danger/15 text-danger",
   LECTURER: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
@@ -16,6 +12,7 @@ const roleBadge: Record<Role, string> = {
 };
 
 export function AdminPage() {
+  const { t } = useLang();
   const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const [users, setUsers] = useState<User[]>([]);
 
@@ -42,24 +39,22 @@ export function AdminPage() {
             <button
               onClick={() => openSidebar()}
               className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
-              title="Mở thanh bên"
+              title={t("common.openSidebar")}
             >
               <IconSidebar size={19} />
             </button>
             <h1 className="font-display text-2xl font-bold text-ink">
-              Quản lý người dùng
+              {t("admin.title")}
             </h1>
           </div>
-          <p className="mt-1 text-sm text-ink-faint">
-            Xem danh sách và phân quyền cho người dùng trong hệ thống.
-          </p>
+          <p className="mt-1 text-sm text-ink-faint">{t("admin.subtitle")}</p>
         </header>
 
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint sm:px-5">
-            <div className="col-span-12 sm:col-span-4">Người dùng</div>
-            <div className="hidden sm:col-span-4 sm:block">Vai trò</div>
-            <div className="hidden sm:col-span-4 sm:block">Gói đăng ký</div>
+            <div className="col-span-12 sm:col-span-4">{t("admin.colUser")}</div>
+            <div className="hidden sm:col-span-4 sm:block">{t("admin.colRole")}</div>
+            <div className="hidden sm:col-span-4 sm:block">{t("admin.colPlan")}</div>
           </div>
           {users.map((u) => (
             <div
@@ -79,7 +74,7 @@ export function AdminPage() {
                 <span
                   className={`ml-auto flex-none rounded-full px-2 py-0.5 text-[10px] font-bold sm:hidden ${roleBadge[u.role]}`}
                 >
-                  {roleLabel[u.role]}
+                  {t(`role.${u.role}`)}
                 </span>
               </div>
               <div className="col-span-6 sm:col-span-4">
@@ -88,9 +83,9 @@ export function AdminPage() {
                   onChange={(e) => changeRole(u.id, e.target.value as Role)}
                   className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
                 >
-                  <option value="USER">Sinh viên</option>
-                  <option value="LECTURER">Giảng viên</option>
-                  <option value="ADMIN">Quản trị viên</option>
+                  <option value="USER">{t("role.USER")}</option>
+                  <option value="LECTURER">{t("role.LECTURER")}</option>
+                  <option value="ADMIN">{t("role.ADMIN")}</option>
                 </select>
               </div>
               <div className="col-span-6 sm:col-span-4">
@@ -106,7 +101,7 @@ export function AdminPage() {
                   </select>
                 ) : (
                   <span className="block px-1 py-1.5 text-sm text-ink-faint">
-                    Không áp dụng
+                    {t("admin.notApplicable")}
                   </span>
                 )}
               </div>

@@ -1,14 +1,16 @@
 import { useState } from "react";
 import type { Citation } from "../../types";
+import { useLang } from "../../i18n/LanguageContext";
 import { IconQuote } from "../Icons";
 
 export function CitationList({ citations }: { citations: Citation[] }) {
+  const { t } = useLang();
   if (!citations.length) return null;
   return (
     <div className="mt-3 space-y-2">
       <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">
         <IconQuote size={14} />
-        Nguồn trích dẫn
+        {t("cite.sources")}
       </p>
       <div className="flex flex-wrap gap-2">
         {citations.map((c, i) => (
@@ -26,6 +28,7 @@ function CitationChip({
   citation: Citation;
   index: number;
 }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -41,21 +44,21 @@ function CitationChip({
         </span>
         <span className="max-w-[180px] truncate">{citation.document_name}</span>
         {citation.page != null && (
-          <span className="text-ink-faint">· tr.{citation.page}</span>
+          <span className="text-ink-faint">· {t("cite.pageShort", { page: citation.page })}</span>
         )}
       </button>
       {open && (
         <div className="absolute bottom-full left-0 z-10 mb-2 w-80 rounded-2xl border border-line bg-surface p-3.5 text-xs text-ink-soft shadow-maple">
           <p className="mb-1.5 font-semibold text-ink">
             {citation.document_name}
-            {citation.page != null && ` — trang ${citation.page}`}
+            {citation.page != null && ` — ${t("cite.pageLong", { page: citation.page })}`}
           </p>
           <p className="max-h-32 overflow-y-auto leading-relaxed text-ink-soft">
             {citation.source_text}
           </p>
           {citation.score != null && (
             <p className="mt-2 text-[10px] text-ink-faint">
-              Độ liên quan: {(citation.score * 100).toFixed(0)}%
+              {t("cite.relevance")}: {(citation.score * 100).toFixed(0)}%
             </p>
           )}
         </div>

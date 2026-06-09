@@ -15,6 +15,7 @@ import {
   IconSun,
 } from "../components/Icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useLang } from "../i18n/LanguageContext";
 import { useChatSessions } from "../chat/ChatSessionContext";
 import type {
   Attachment,
@@ -25,18 +26,14 @@ import type {
   SessionDetail,
 } from "../types";
 
-const SUGGESTED_PROMPTS = [
-  { icon: "📐", title: "Use case là gì?", sub: "Giải thích khái niệm và vai trò trong mô hình hóa." },
-  { icon: "🔗", title: "Aggregation vs Composition", sub: "Phân biệt hai loại quan hệ trong UML." },
-  { icon: "🧩", title: "Observer Pattern", sub: "Mẫu thiết kế này hoạt động như thế nào?" },
-  { icon: "🏛️", title: "Kiến trúc phân lớp", sub: "Mô tả layered software architecture." },
-];
+const PROMPT_ICONS = ["📐", "🔗", "🧩", "🏛️"];
 
 let _idc = 0;
 const uid = () => Date.now() * 1000 + ++_idc;
 
 export function ChatPage() {
   const { dark, toggle } = useTheme();
+  const { t } = useLang();
   const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const { sessions, setSessions, activeId, setActiveId, register } =
     useChatSessions();
@@ -127,7 +124,7 @@ export function ChatPage() {
       const userMsg: Message = {
         id: uid(),
         role: "user",
-        content: question || "(tệp đính kèm)",
+        content: question || t("chat.attachment"),
         created_at: "",
         citations: [],
         attachments: atts.length ? atts : undefined,
@@ -160,7 +157,7 @@ export function ChatPage() {
             x.id === placeholderId
               ? {
                   ...x,
-                  content: "Xin lỗi, đã có lỗi khi xử lý câu hỏi của bạn.",
+                  content: t("chat.errorReply"),
                   streaming: false,
                 }
               : x
@@ -169,7 +166,7 @@ export function ChatPage() {
         setStreaming(false);
       }
     },
-    [activeId, courseId, streamReply]
+    [activeId, courseId, streamReply, t]
   );
 
   const regenerate = useCallback(
@@ -198,7 +195,7 @@ export function ChatPage() {
           <button
             onClick={() => openSidebar()}
             className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
-            title="Mở thanh bên"
+            title={t("common.openSidebar")}
           >
             <IconSidebar size={19} />
           </button>
@@ -220,7 +217,7 @@ export function ChatPage() {
           )}
           <button
             className="grid h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink"
-            title="Đổi giao diện"
+            title={t("common.toggleTheme")}
             onClick={toggle}
           >
             {dark ? <IconSun size={19} /> : <IconMoon size={19} />}
@@ -246,19 +243,28 @@ export function ChatPage() {
 }
 
 function Welcome({ onPrompt }: { onPrompt: (p: string) => void }) {
+  const { t } = useLang();
   const hour = new Date().getHours();
-  const greet = hour < 11 ? "Chào buổi sáng" : hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
+  const greet =
+    hour < 11
+      ? t("chat.greetMorning")
+      : hour < 18
+        ? t("chat.greetAfternoon")
+        : t("chat.greetEvening");
+  const prompts = PROMPT_ICONS.map((icon, i) => ({
+    icon,
+    title: t(`chat.prompt${i + 1}.title`),
+    sub: t(`chat.prompt${i + 1}.sub`),
+  }));
   return (
     <div className="welcome">
       <div className="welcome-mark">
         <IconMaple size={52} />
       </div>
-      <h1 className="welcome-title">{greet}! Mình là Maple 🍁</h1>
-      <p className="welcome-sub">
-        Mình trả lời dựa trên tài liệu môn học đã được index, kèm trích dẫn nguồn. Bắt đầu từ đâu nhỉ?
-      </p>
+      <h1 className="welcome-title">{t("chat.welcomeTitle", { greet })}</h1>
+      <p className="welcome-sub">{t("chat.welcomeSub")}</p>
       <div className="prompts">
-        {SUGGESTED_PROMPTS.map((p, i) => (
+        {prompts.map((p, i) => (
           <button
             key={i}
             className="prompt-card"
@@ -285,6 +291,7 @@ function Composer({
   streaming: boolean;
   onStop: () => void;
 }) {
+  const { t } = useLang();
   const [text, setText] = useState("");
   const [atts, setAtts] = useState<Attachment[]>([]);
   const [rec, setRec] = useState(false);
@@ -345,7 +352,7 @@ function Composer({
         <div className="comp-row">
           <button
             className="comp-icon"
-            title="Đính kèm"
+            title={t("chat.attach")}
             onClick={() => fileRef.current?.click()}
           >
             <IconPaperclip size={20} />
@@ -361,19 +368,19 @@ function Composer({
             ref={taRef}
             rows={1}
             value={text}
-            placeholder="Nhắn cho Maple…"
+            placeholder={t("chat.placeholder")}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKey}
           />
           <button
             className={`comp-icon ${rec ? "rec" : ""}`}
-            title="Giọng nói"
+            title={t("chat.voice")}
             onClick={() => setRec((r) => !r)}
           >
             <IconMic size={20} />
           </button>
           {streaming ? (
-            <button className="comp-send stop" onClick={onStop} title="Dừng">
+            <button className="comp-send stop" onClick={onStop} title={t("chat.stop")}>
               <IconStop size={18} />
             </button>
           ) : (
@@ -381,16 +388,14 @@ function Composer({
               className="comp-send"
               onClick={submit}
               disabled={!text.trim() && atts.length === 0}
-              title="Gửi"
+              title={t("chat.send")}
             >
               <IconSend size={18} />
             </button>
           )}
         </div>
       </div>
-      <div className="comp-hint">
-        Maple chỉ trả lời trong phạm vi tài liệu. Hãy kiểm tra các thông tin quan trọng.
-      </div>
+      <div className="comp-hint">{t("chat.disclaimer")}</div>
     </div>
   );
 }

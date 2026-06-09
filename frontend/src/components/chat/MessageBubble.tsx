@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Message } from "../../types";
+import { useLang } from "../../i18n/LanguageContext";
 import { Markdown } from "../Markdown";
 import { CitationList } from "./CitationCard";
 import {
@@ -43,11 +44,12 @@ function TypingDots() {
 }
 
 function CopyBtn({ text }: { text: string }) {
+  const { t } = useLang();
   const [c, setC] = useState(false);
   return (
     <button
       className="act-btn"
-      title="Sao chép"
+      title={t("msg.copy")}
       onClick={() => {
         navigator.clipboard?.writeText(text).catch(() => {});
         setC(true);
@@ -60,13 +62,14 @@ function CopyBtn({ text }: { text: string }) {
 }
 
 export function MessageBubble({ message, bubbleUser = true, onRegenerate }: Props) {
+  const { t } = useLang();
   const isUser = message.role === "user";
   const streaming = (message as { streaming?: boolean }).streaming;
   return (
     <div className={`msg animate-fade-in ${isUser ? "msg-user" : "msg-bot"}`}>
       <Avatar role={message.role} />
       <div className="msg-body">
-        <div className="msg-name">{isUser ? "Bạn" : "Maple"}</div>
+        <div className="msg-name">{isUser ? t("msg.you") : "Maple"}</div>
 
         {message.attachments && message.attachments.length > 0 && (
           <div className="msg-attachments mb-2 flex flex-wrap gap-2">
@@ -102,16 +105,16 @@ export function MessageBubble({ message, bubbleUser = true, onRegenerate }: Prop
             {onRegenerate && (
               <button
                 className="act-btn"
-                title="Tạo lại"
+                title={t("msg.regenerate")}
                 onClick={() => onRegenerate(message)}
               >
                 <IconRefresh size={16} />
               </button>
             )}
-            <button className="act-btn" title="Hữu ích">
+            <button className="act-btn" title={t("msg.helpful")}>
               <IconThumbUp size={16} />
             </button>
-            <button className="act-btn" title="Chưa tốt">
+            <button className="act-btn" title={t("msg.notGood")}>
               <IconThumbDown size={16} />
             </button>
           </div>

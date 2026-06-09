@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useLang } from "../i18n/LanguageContext";
 import { IconCheck, IconSidebar, IconSpark } from "../components/Icons";
 import type { PlanOption, User } from "../types";
 
@@ -9,6 +10,7 @@ type Ctx = { openSidebar: () => void };
 
 export function PricingPage() {
   const { openSidebar } = useOutletContext<Ctx>();
+  const { t } = useLang();
   const { user, refresh } = useAuth();
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -38,12 +40,9 @@ export function PricingPage() {
             <IconSpark size={28} />
           </div>
           <h1 className="font-display text-xl font-bold text-ink">
-            Tài khoản của bạn không cần gói dịch vụ
+            {t("pricing.noNeedTitle")}
           </h1>
-          <p className="mt-2 text-sm text-ink-faint">
-            Gói Free / Pro / Max chỉ dành cho sinh viên. Giảng viên và quản trị
-            viên được sử dụng đầy đủ tính năng mà không cần đăng ký.
-          </p>
+          <p className="mt-2 text-sm text-ink-faint">{t("pricing.noNeedBody")}</p>
         </div>
       </div>
     );
@@ -57,16 +56,16 @@ export function PricingPage() {
             <button
               onClick={() => openSidebar()}
               className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
-              title="Mở thanh bên"
+              title={t("common.openSidebar")}
             >
               <IconSidebar size={19} />
             </button>
             <h1 className="font-display text-2xl font-bold text-ink">
-              Gói dịch vụ
+              {t("pricing.title")}
             </h1>
           </div>
           <p className="mt-1 text-sm text-ink-faint">
-            Chọn gói phù hợp. Gói hiện tại của bạn:{" "}
+            {t("pricing.subtitle")}{" "}
             <span className="font-semibold text-accent">{user?.plan}</span>.
           </p>
         </header>
@@ -83,7 +82,7 @@ export function PricingPage() {
             >
               {p.highlight && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white">
-                  Phổ biến
+                  {t("pricing.popular")}
                 </span>
               )}
               <div className="mb-1 flex items-center gap-2">
@@ -118,12 +117,12 @@ export function PricingPage() {
                 }`}
               >
                 {p.current
-                  ? "Gói hiện tại"
+                  ? t("pricing.current")
                   : busy === p.id
-                    ? "Đang xử lý…"
+                    ? t("pricing.processing")
                     : p.price === 0
-                      ? "Dùng miễn phí"
-                      : "Nâng cấp"}
+                      ? t("pricing.useFree")
+                      : t("pricing.upgrade")}
               </button>
             </div>
           ))}

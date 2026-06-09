@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { useChatSessions } from "../../chat/ChatSessionContext";
+import { useLang } from "../../i18n/LanguageContext";
+import { LANGS } from "../../i18n/translations";
 import type { ChatSession } from "../../types";
 import {
   IconBook,
@@ -18,12 +20,6 @@ import {
   IconTrash,
   IconUsers,
 } from "../Icons";
-
-const roleLabel: Record<string, string> = {
-  ADMIN: "Quản trị viên",
-  LECTURER: "Giảng viên",
-  USER: "Sinh viên",
-};
 
 function NavItem({
   to,
@@ -55,6 +51,7 @@ function NavItem({
   );
 }
 
+// Nhóm theo thời gian; trả về key ổn định để dịch lúc render (today/last7/older).
 function groupByTime(sessions: ChatSession[]) {
   const now = Date.now();
   const day = 86400000;
@@ -62,15 +59,15 @@ function groupByTime(sessions: ChatSession[]) {
   for (const s of sessions) {
     const t = s.created_at ? new Date(s.created_at).getTime() : now;
     const age = now - t;
-    const label =
-      age < day ? "Hôm nay" : age < 7 * day ? "7 ngày qua" : "Trước đó";
-    (groups[label] = groups[label] || []).push(s);
+    const key = age < day ? "today" : age < 7 * day ? "last7" : "older";
+    (groups[key] = groups[key] || []).push(s);
   }
   return groups;
 }
 
 export function AppLayout() {
   const { user, logout } = useAuth();
+  const { lang, setLang, t } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
   const { sessions, setSessions, activeId, openSession, newChat } =
@@ -101,7 +98,7 @@ export function AppLayout() {
 
   const removeSession = async (e: React.MouseEvent, s: ChatSession) => {
     e.stopPropagation();
-    if (!confirm(`Xóa cuộc trò chuyện "${s.title}"?`)) return;
+    if (!confirm(t("nav.deleteChatConfirm", { title: s.title }))) return;
     await api.delete(`/sessions/${s.id}`);
     setSessions(sessions.filter((x) => x.id !== s.id));
     if (s.id === activeId) newChat();
@@ -140,7 +137,7 @@ export function AppLayout() {
       >
         <button
           onClick={(e) => togglePin(e, c)}
-          title={c.pinned ? "Bỏ ghim" : "Ghim"}
+          title={c.pinned ? t("nav.unpin") : t("nav.pin")}
           className={`grid h-7 w-7 place-items-center rounded-[7px] transition hover:bg-surface-2 ${
             c.pinned ? "text-accent" : "text-ink-faint hover:text-ink"
           }`}
@@ -149,7 +146,7 @@ export function AppLayout() {
         </button>
         <button
           onClick={(e) => removeSession(e, c)}
-          title="Xóa"
+          title={t("common.delete")}
           className="grid h-7 w-7 place-items-center rounded-[7px] text-ink-faint transition hover:bg-danger/10 hover:text-danger"
         >
           <IconTrash size={15} />
@@ -187,7 +184,7 @@ export function AppLayout() {
           </div>
           <button
             className="grid h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink"
-            title="Thu gọn"
+            title={t("common.collapse")}
             onClick={() => setOpen(false)}
           >
             <IconSidebar size={20} />
@@ -205,21 +202,21 @@ export function AppLayout() {
           <span className="text-accent">
             <IconPlus size={18} />
           </span>
-          Cuộc trò chuyện mới
+          {t("nav.newChat")}
         </button>
 
         {/* App navigation */}
         <nav className="mx-[14px] mb-2 flex flex-col gap-1">
-          <NavItem to="/" label="Hỏi đáp" icon={<IconChat size={19} />} onClick={closeOnMobile} />
+          <NavItem to="/" label={t("nav.chat")} icon={<IconChat size={19} />} onClick={closeOnMobile} />
           {canManage && (
-            <NavItem to="/documents" label="Tài liệu" icon={<IconBook size={19} />} onClick={closeOnMobile} />
+            <NavItem to="/documents" label={t("nav.documents")} icon={<IconBook size={19} />} onClick={closeOnMobile} />
           )}
-          <NavItem to="/quizzes" label="Quiz" icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
+          <NavItem to="/quizzes" label={t("nav.quiz")} icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
           {isStudent && (
-            <NavItem to="/pricing" label="Gói dịch vụ" icon={<IconSpark size={19} />} onClick={closeOnMobile} />
+            <NavItem to="/pricing" label={t("nav.pricing")} icon={<IconSpark size={19} />} onClick={closeOnMobile} />
           )}
           {user?.role === "ADMIN" && (
-            <NavItem to="/admin" label="Người dùng" icon={<IconUsers size={19} />} onClick={closeOnMobile} />
+            <NavItem to="/admin" label={t("nav.users")} icon={<IconUsers size={19} />} onClick={closeOnMobile} />
           )}
         </nav>
 
@@ -229,7 +226,7 @@ export function AppLayout() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Tìm cuộc trò chuyện"
+            placeholder={t("nav.searchChat")}
             className="flex-1 border-none bg-transparent text-[14.5px] text-ink outline-none placeholder:text-ink-faint"
           />
         </div>
@@ -238,7 +235,7 @@ export function AppLayout() {
           {pinned.length > 0 && (
             <div className="mb-2">
               <div className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                <IconPin size={13} /> Đã ghim
+                <IconPin size={13} /> {t("nav.pinned")}
               </div>
               {pinned.map(renderRow)}
             </div>
@@ -246,21 +243,40 @@ export function AppLayout() {
           {Object.keys(groups).map((g) => (
             <div key={g} className="mb-2">
               <div className="px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                {g}
+                {t(`nav.${g}`)}
               </div>
               {groups[g].map(renderRow)}
             </div>
           ))}
           {filtered.length === 0 && (
             <div className="px-3 py-[18px] text-sm text-ink-faint">
-              {sessions.length === 0
-                ? "Chưa có cuộc trò chuyện nào."
-                : "Không tìm thấy."}
+              {sessions.length === 0 ? t("nav.noChats") : t("nav.notFound")}
             </div>
           )}
         </div>
 
         <div className="border-t border-line p-3">
+          {/* Language switcher — VI / EN (web + mobile) */}
+          <div
+            className="mb-2 flex items-center gap-1 rounded-[11px] border border-line-soft bg-surface p-1"
+            role="group"
+            aria-label={t("nav.language")}
+          >
+            {LANGS.map((l) => (
+              <button
+                key={l.code}
+                onClick={() => setLang(l.code)}
+                className={`flex-1 rounded-[8px] py-1.5 text-xs font-semibold transition ${
+                  lang === l.code
+                    ? "bg-accent text-white shadow-maple-sm"
+                    : "text-ink-soft hover:bg-surface-2 hover:text-ink"
+                }`}
+                title={l.label}
+              >
+                {l.short}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-2.5 rounded-xl px-2 py-1.5">
             <div className="avatar avatar-user sm">
               {user?.full_name?.charAt(0) ?? "?"}
@@ -270,7 +286,7 @@ export function AppLayout() {
                 {user?.full_name}
               </div>
               <div className="flex items-center gap-1.5 text-[12.5px] text-ink-faint">
-                <span className="truncate">{roleLabel[user?.role ?? "USER"]}</span>
+                <span className="truncate">{t(`role.${user?.role ?? "USER"}`)}</span>
                 {isStudent && (
                   <span className="flex-none rounded-full bg-accent/12 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-accent">
                     {user?.plan ?? "FREE"}
@@ -284,7 +300,7 @@ export function AppLayout() {
                 navigate("/login");
               }}
               className="grid h-9 w-9 place-items-center rounded-[10px] text-ink-faint transition hover:bg-surface-2 hover:text-danger"
-              title="Đăng xuất"
+              title={t("nav.logout")}
             >
               <IconLogout size={18} />
             </button>
@@ -296,7 +312,7 @@ export function AppLayout() {
         {!open && (
           <button
             className="absolute left-3 top-[10px] z-10 hidden h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:grid"
-            title="Mở thanh bên"
+            title={t("common.openSidebar")}
             onClick={() => setOpen(true)}
           >
             <IconSidebar size={20} />

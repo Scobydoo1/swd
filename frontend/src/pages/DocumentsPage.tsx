@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useLang } from "../i18n/LanguageContext";
 import { IconSidebar, IconTrash, IconUpload } from "../components/Icons";
 import type { Course, Document } from "../types";
 
@@ -9,11 +10,6 @@ const statusStyle: Record<string, string> = {
   INDEXED: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
   PROCESSING: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   FAILED: "bg-danger/15 text-danger",
-};
-const statusLabel: Record<string, string> = {
-  INDEXED: "Đã index",
-  PROCESSING: "Đang xử lý",
-  FAILED: "Thất bại",
 };
 const typeIcon: Record<string, string> = {
   PDF: "📄",
@@ -23,6 +19,7 @@ const typeIcon: Record<string, string> = {
 
 export function DocumentsPage() {
   const { user } = useAuth();
+  const { t } = useLang();
   const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
 
@@ -68,7 +65,7 @@ export function DocumentsPage() {
       setNewName("");
       setNewDesc("");
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? "Tạo môn học thất bại");
+      setError(e.response?.data?.detail ?? t("docs.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -85,7 +82,7 @@ export function DocumentsPage() {
       await api.post("/documents", form);
       await load();
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? "Upload thất bại");
+      setError(e.response?.data?.detail ?? t("docs.uploadFailed"));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -93,7 +90,7 @@ export function DocumentsPage() {
   };
 
   const remove = async (id: number) => {
-    if (!confirm("Xóa tài liệu này khỏi hệ thống?")) return;
+    if (!confirm(t("docs.removeConfirm"))) return;
     await api.delete(`/documents/${id}`);
     load();
   };
@@ -106,27 +103,25 @@ export function DocumentsPage() {
             <button
               onClick={() => openSidebar()}
               className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
-              title="Mở thanh bên"
+              title={t("common.openSidebar")}
             >
               <IconSidebar size={19} />
             </button>
             <h1 className="font-display text-2xl font-bold text-ink">
-              Quản lý tài liệu
+              {t("docs.title")}
             </h1>
           </div>
-          <p className="mt-1 text-sm text-ink-faint">
-            Upload tài liệu bài giảng — hệ thống tự động chunk &amp; embed.
-          </p>
+          <p className="mt-1 text-sm text-ink-faint">{t("docs.subtitle")}</p>
         </header>
 
         <div className="mb-6 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-medium text-ink-soft">Môn học:</label>
+          <label className="text-sm font-medium text-ink-soft">{t("docs.course")}</label>
           <select
             value={courseId ?? ""}
             onChange={(e) => setCourseId(Number(e.target.value))}
             className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           >
-            {courses.length === 0 && <option value="">Chưa có môn học</option>}
+            {courses.length === 0 && <option value="">{t("docs.noCourse")}</option>}
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -138,7 +133,7 @@ export function DocumentsPage() {
               onClick={() => setShowCreate((v) => !v)}
               className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-surface-2"
             >
-              {showCreate ? "Hủy" : "+ Tạo môn học"}
+              {showCreate ? t("common.cancel") : t("docs.createCourse")}
             </button>
           )}
         </div>
@@ -146,19 +141,19 @@ export function DocumentsPage() {
         {canManage && showCreate && (
           <div className="mb-6 rounded-[20px] border border-line bg-surface p-5">
             <h2 className="mb-3 text-sm font-semibold text-ink">
-              Tạo môn học mới
+              {t("docs.createCourseTitle")}
             </h2>
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Tên môn học"
+                placeholder={t("docs.courseName")}
                 className="flex-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               />
               <input
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
-                placeholder="Mô tả (tùy chọn)"
+                placeholder={t("docs.descriptionOptional")}
                 className="flex-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               />
               <button
@@ -166,7 +161,7 @@ export function DocumentsPage() {
                 disabled={creating || !newName.trim()}
                 className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent/90 disabled:opacity-50"
               >
-                {creating ? "Đang tạo…" : "Tạo"}
+                {creating ? t("docs.creating") : t("docs.create")}
               </button>
             </div>
           </div>
@@ -192,19 +187,15 @@ export function DocumentsPage() {
           {uploading ? (
             <div className="text-accent">
               <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-line border-t-accent" />
-              Đang xử lý &amp; index tài liệu…
+              {t("docs.processing")}
             </div>
           ) : (
             <>
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-surface-2 text-accent">
                 <IconUpload size={26} />
               </div>
-              <p className="mt-3 font-semibold text-ink">
-                Kéo thả hoặc bấm để chọn file
-              </p>
-              <p className="mt-1 text-xs text-ink-faint">
-                Hỗ trợ PDF, DOCX, PPTX
-              </p>
+              <p className="mt-3 font-semibold text-ink">{t("docs.dropOrClick")}</p>
+              <p className="mt-1 text-xs text-ink-faint">{t("docs.supports")}</p>
             </>
           )}
         </div>
@@ -218,14 +209,14 @@ export function DocumentsPage() {
         {/* Document list */}
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint sm:px-5">
-            <div className="col-span-7 sm:col-span-6">Tài liệu</div>
-            <div className="hidden sm:col-span-2 sm:block">Chunks</div>
-            <div className="col-span-3 sm:col-span-2">Trạng thái</div>
-            <div className="col-span-2 text-right">Thao tác</div>
+            <div className="col-span-7 sm:col-span-6">{t("docs.colDoc")}</div>
+            <div className="hidden sm:col-span-2 sm:block">{t("docs.colChunks")}</div>
+            <div className="col-span-3 sm:col-span-2">{t("docs.colStatus")}</div>
+            <div className="col-span-2 text-right">{t("docs.colActions")}</div>
           </div>
           {docs.length === 0 && (
             <p className="px-5 py-10 text-center text-sm text-ink-faint">
-              Chưa có tài liệu nào được index.
+              {t("docs.empty")}
             </p>
           )}
           {docs.map((d) => (
@@ -244,14 +235,14 @@ export function DocumentsPage() {
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[d.status]}`}
                 >
-                  {statusLabel[d.status]}
+                  {t(`docs.status${d.status}`)}
                 </span>
               </div>
               <div className="col-span-2 flex justify-end">
                 <button
                   onClick={() => remove(d.id)}
                   className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint transition hover:bg-danger/10 hover:text-danger"
-                  title="Xóa"
+                  title={t("common.delete")}
                 >
                   <IconTrash size={16} />
                 </button>

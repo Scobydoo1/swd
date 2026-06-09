@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useLang } from "../i18n/LanguageContext";
 import {
   IconCheck,
   IconClose,
@@ -34,6 +35,7 @@ const emptyQuestion = (): DraftQuestion => ({
 export function QuizzesPage() {
   const { openSidebar } = useOutletContext<Ctx>();
   const { user } = useAuth();
+  const { t } = useLang();
   const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
 
   const [quizzes, setQuizzes] = useState<QuizListItem[]>([]);
@@ -47,7 +49,7 @@ export function QuizzesPage() {
   }, []);
 
   const remove = async (id: number) => {
-    if (!confirm("Xóa quiz này?")) return;
+    if (!confirm(t("quiz.deleteConfirm"))) return;
     await api.delete(`/quizzes/${id}`);
     load();
   };
@@ -66,16 +68,14 @@ export function QuizzesPage() {
               <button
                 onClick={() => openSidebar()}
                 className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[10px] text-ink-soft transition hover:bg-surface-2 hover:text-ink lg:hidden"
-                title="Mở thanh bên"
+                title={t("common.openSidebar")}
               >
                 <IconSidebar size={19} />
               </button>
-              <h1 className="font-display text-2xl font-bold text-ink">Quiz</h1>
+              <h1 className="font-display text-2xl font-bold text-ink">{t("nav.quiz")}</h1>
             </div>
             <p className="mt-1 text-sm text-ink-faint">
-              {canManage
-                ? "Tạo và quản lý quiz cho sinh viên."
-                : "Làm quiz do giảng viên giao và xem điểm ngay."}
+              {canManage ? t("quiz.subtitleManage") : t("quiz.subtitleTake")}
             </p>
           </div>
           {canManage && (
@@ -83,7 +83,7 @@ export function QuizzesPage() {
               onClick={() => setCreating(true)}
               className="flex flex-none items-center gap-2 rounded-xl bg-accent px-3.5 py-2.5 text-sm font-semibold text-white shadow-maple-sm transition hover:brightness-105"
             >
-              <IconPlus size={17} /> Tạo quiz
+              <IconPlus size={17} /> {t("quiz.create")}
             </button>
           )}
         </header>
@@ -93,7 +93,7 @@ export function QuizzesPage() {
             <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-surface-2 text-accent">
               <IconQuiz size={26} />
             </div>
-            Chưa có quiz nào.
+            {t("quiz.empty")}
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -109,14 +109,14 @@ export function QuizzesPage() {
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate font-semibold text-ink">{q.title}</h3>
                     <p className="text-xs text-ink-faint">
-                      {q.num_questions} câu hỏi
+                      {t("quiz.numQuestions", { n: q.num_questions })}
                     </p>
                   </div>
                   {canManage && (
                     <button
                       onClick={() => remove(q.id)}
                       className="grid h-8 w-8 flex-none place-items-center rounded-lg text-ink-faint transition hover:bg-danger/10 hover:text-danger"
-                      title="Xóa"
+                      title={t("common.delete")}
                     >
                       <IconTrash size={16} />
                     </button>
@@ -126,7 +126,7 @@ export function QuizzesPage() {
                   onClick={() => openTake(q.id)}
                   className="mt-4 rounded-xl border border-line bg-surface-2 py-2 text-sm font-semibold text-accent transition hover:border-accent/60"
                 >
-                  {canManage ? "Xem & làm thử" : "Làm bài"}
+                  {canManage ? t("quiz.viewTry") : t("quiz.take")}
                 </button>
               </div>
             ))}
@@ -158,6 +158,7 @@ function TakeQuizModal({
   quiz: QuizDetail;
   onClose: () => void;
 }) {
+  const { t } = useLang();
   const [answers, setAnswers] = useState<(number | null)[]>(
     quiz.questions.map(() => null)
   );
@@ -196,7 +197,7 @@ function TakeQuizModal({
         <div className="mx-5 mt-5 rounded-2xl bg-accent/10 p-4 text-center">
           <div className="text-3xl font-bold text-accent">{result.score}%</div>
           <div className="text-sm text-ink-soft">
-            Đúng {result.correct}/{result.total} câu
+            {t("quiz.correctOf", { correct: result.correct, total: result.total })}
           </div>
         </div>
       )}
@@ -261,7 +262,7 @@ function TakeQuizModal({
             onClick={onClose}
             className="w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105"
           >
-            Hoàn tất
+            {t("quiz.finish")}
           </button>
         ) : (
           <button
@@ -269,7 +270,7 @@ function TakeQuizModal({
             disabled={busy || answers.some((a) => a === null)}
             className="w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
           >
-            {busy ? "Đang chấm…" : "Nộp bài"}
+            {busy ? t("quiz.grading") : t("quiz.submit")}
           </button>
         )}
       </div>
@@ -285,6 +286,7 @@ function CreateQuizModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLang();
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseId, setCourseId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
@@ -333,7 +335,7 @@ function CreateQuizModal({
       });
       onCreated();
     } catch (e: any) {
-      setError(e.response?.data?.detail ?? "Tạo quiz thất bại");
+      setError(e.response?.data?.detail ?? t("quiz.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -342,7 +344,7 @@ function CreateQuizModal({
   return (
     <Overlay onClose={onClose}>
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
-        <h2 className="font-display text-lg font-bold text-ink">Tạo quiz mới</h2>
+        <h2 className="font-display text-lg font-bold text-ink">{t("quiz.createTitle")}</h2>
         <button
           onClick={onClose}
           className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2 hover:text-ink"
@@ -356,7 +358,7 @@ function CreateQuizModal({
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Tiêu đề quiz"
+            placeholder={t("quiz.titlePlaceholder")}
             className="flex-1 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent"
           />
           <select
@@ -379,7 +381,7 @@ function CreateQuizModal({
           >
             <div className="mb-2 flex items-center gap-2">
               <span className="text-sm font-semibold text-ink-soft">
-                Câu {qi + 1}
+                {t("quiz.questionN", { n: qi + 1 })}
               </span>
               {questions.length > 1 && (
                 <button
@@ -387,7 +389,7 @@ function CreateQuizModal({
                     setQuestions((qs) => qs.filter((_, j) => j !== qi))
                   }
                   className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
-                  title="Xóa câu"
+                  title={t("quiz.deleteQuestion")}
                 >
                   <IconTrash size={15} />
                 </button>
@@ -396,18 +398,16 @@ function CreateQuizModal({
             <input
               value={q.text}
               onChange={(e) => patchQ(qi, { text: e.target.value })}
-              placeholder="Nội dung câu hỏi"
+              placeholder={t("quiz.questionContent")}
               className="mb-3 w-full rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
             />
-            <p className="mb-1.5 text-xs text-ink-faint">
-              Chọn ô tròn để đánh dấu đáp án đúng:
-            </p>
+            <p className="mb-1.5 text-xs text-ink-faint">{t("quiz.markCorrect")}</p>
             <div className="flex flex-col gap-2">
               {q.options.map((opt, oi) => (
                 <div key={oi} className="flex items-center gap-2">
                   <button
                     onClick={() => patchQ(qi, { correct_index: oi })}
-                    title="Đáp án đúng"
+                    title={t("quiz.correctAnswer")}
                     className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-[11px] ${
                       q.correct_index === oi
                         ? "border-emerald-500 bg-emerald-500/15 text-emerald-600"
@@ -425,7 +425,7 @@ function CreateQuizModal({
                         ),
                       })
                     }
-                    placeholder={`Lựa chọn ${oi + 1}`}
+                    placeholder={t("quiz.optionN", { n: oi + 1 })}
                     className="flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
                   />
                 </div>
@@ -438,7 +438,7 @@ function CreateQuizModal({
           onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}
           className="flex items-center gap-2 rounded-xl border border-dashed border-line px-3.5 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-surface-2"
         >
-          <IconPlus size={16} /> Thêm câu hỏi
+          <IconPlus size={16} /> {t("quiz.addQuestion")}
         </button>
 
         {error && (
@@ -454,7 +454,7 @@ function CreateQuizModal({
           disabled={!valid || busy}
           className="w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
         >
-          {busy ? "Đang lưu…" : "Lưu quiz"}
+          {busy ? t("quiz.saving") : t("quiz.save")}
         </button>
       </div>
     </Overlay>

@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
+import { useLang } from "../i18n/LanguageContext";
 import { IconMaple, IconMoon, IconSun } from "../components/Icons";
 import type { Role } from "../types";
 
 export function LoginPage() {
   const { user, login, register } = useAuth();
   const { dark, toggle } = useTheme();
+  const { t } = useLang();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -28,7 +30,7 @@ export function LoginPage() {
       else await register(email, password, fullName, role);
       navigate("/");
     } catch (err: any) {
-      setError(err.response?.data?.detail ?? "Có lỗi xảy ra");
+      setError(err.response?.data?.detail ?? t("common.error"));
     } finally {
       setBusy(false);
     }
@@ -39,7 +41,7 @@ export function LoginPage() {
       <button
         onClick={toggle}
         className="absolute right-5 top-5 grid h-[38px] w-[38px] place-items-center rounded-[11px] text-ink-soft transition hover:bg-surface-2 hover:text-ink"
-        title="Đổi giao diện"
+        title={t("common.toggleTheme")}
       >
         {dark ? <IconSun size={19} /> : <IconMoon size={19} />}
       </button>
@@ -60,45 +62,42 @@ export function LoginPage() {
             <h1 className="mt-8 font-display text-3xl font-bold leading-tight">
               Maple 🍁
             </h1>
-            <p className="mt-3 text-white/80">
-              Trợ lý học tập AI — hỏi đáp dựa trên tài liệu môn học, có trích dẫn
-              nguồn chính xác.
-            </p>
+            <p className="mt-3 text-white/80">{t("login.tagline")}</p>
           </div>
           <ul className="space-y-3 text-sm text-white/85">
-            <li className="flex items-center gap-2">📚 Quản lý tài liệu PDF / DOCX / Slide</li>
-            <li className="flex items-center gap-2">🔍 Trả lời trong phạm vi tài liệu</li>
-            <li className="flex items-center gap-2">💬 Lịch sử hội thoại theo phiên</li>
+            <li className="flex items-center gap-2">{t("login.feature1")}</li>
+            <li className="flex items-center gap-2">{t("login.feature2")}</li>
+            <li className="flex items-center gap-2">{t("login.feature3")}</li>
           </ul>
         </div>
 
         {/* Form panel */}
         <div className="p-8 sm:p-10">
           <h2 className="font-display text-2xl font-bold text-ink">
-            {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
+            {mode === "login" ? t("login.signIn") : t("login.createAccount")}
           </h2>
           <p className="mt-1 text-sm text-ink-faint">
-            {mode === "login" ? "Chào mừng quay lại!" : "Điền thông tin để bắt đầu."}
+            {mode === "login" ? t("login.welcomeBack") : t("login.fillToStart")}
           </p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
             {mode === "register" && (
               <Field
-                label="Họ và tên"
+                label={t("login.fullName")}
                 value={fullName}
                 onChange={setFullName}
-                placeholder="Nguyễn Văn A"
+                placeholder={t("login.fullNamePlaceholder")}
               />
             )}
             <Field
-              label="Email"
+              label={t("login.email")}
               type="email"
               value={email}
               onChange={setEmail}
               placeholder="you@example.com"
             />
             <Field
-              label="Mật khẩu"
+              label={t("login.password")}
               type="password"
               value={password}
               onChange={setPassword}
@@ -107,16 +106,16 @@ export function LoginPage() {
             {mode === "register" && (
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-soft">
-                  Vai trò
+                  {t("login.role")}
                 </label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
                   className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
                 >
-                  <option value="USER">Sinh viên</option>
-                  <option value="LECTURER">Giảng viên</option>
-                  <option value="ADMIN">Quản trị viên</option>
+                  <option value="USER">{t("role.USER")}</option>
+                  <option value="LECTURER">{t("role.LECTURER")}</option>
+                  <option value="ADMIN">{t("role.ADMIN")}</option>
                 </select>
               </div>
             )}
@@ -132,12 +131,16 @@ export function LoginPage() {
               className="w-full rounded-xl py-3 font-semibold text-white shadow-maple-sm transition hover:brightness-105 disabled:opacity-60"
               style={{ background: "var(--accent)" }}
             >
-              {busy ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Đăng ký"}
+              {busy
+                ? t("login.processing")
+                : mode === "login"
+                  ? t("login.signIn")
+                  : t("login.register")}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-ink-faint">
-            {mode === "login" ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
+            {mode === "login" ? t("login.noAccount") : t("login.haveAccount")}
             <button
               onClick={() => {
                 setMode(mode === "login" ? "register" : "login");
@@ -145,15 +148,15 @@ export function LoginPage() {
               }}
               className="font-semibold text-accent hover:underline"
             >
-              {mode === "login" ? "Đăng ký ngay" : "Đăng nhập"}
+              {mode === "login" ? t("login.registerNow") : t("login.signIn")}
             </button>
           </p>
 
           {mode === "login" && (
             <div className="mt-4 rounded-xl bg-surface-2 p-3 text-xs text-ink-faint">
-              Demo: admin@demo.com · lecturer@demo.com · student@demo.com
+              {t("login.demoAccounts")}
               <br />
-              Mật khẩu: admin123 / lecturer123 / student123
+              {t("login.demoPassword")}
             </div>
           )}
         </div>
