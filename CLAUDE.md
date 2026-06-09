@@ -61,8 +61,8 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 
 #### Subscription / Gói dịch vụ (FR-SUB)
 - `FR-SUB-01` — Xem 3 gói **Free / Pro / Max** (giá, tính năng), đánh dấu gói hiện tại: `GET /plans`
-- `FR-SUB-02` — Người dùng tự nâng cấp gói cho chính mình: `POST /subscriptions` (`plan_id`)
-- `FR-SUB-03` — Rate-limit chat **theo gói** (Free 20 / Pro 60 / Max 120 câu mỗi phút)
+- `FR-SUB-02` — **Chỉ Sinh viên (USER)** tự nâng cấp gói cho chính mình: `POST /subscriptions` (`plan_id`). Giảng viên & Admin **không cần** gói → endpoint trả `403`.
+- `FR-SUB-03` — Rate-limit chat **theo gói, chỉ áp dụng cho Sinh viên** (Free 20 / Pro 60 / Max 120 câu mỗi phút). Giảng viên & Admin dùng không giới hạn.
 
 ### B. Deliverables
 - Web app chatbot.

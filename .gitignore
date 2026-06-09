@@ -28,10 +28,8 @@ frontend/.env
 frontend/.devserver.log
 frontend/.devserver.err.log
 
-# Loose screenshot files at root
-*.png
-mobile-chat.png
-quiz-result-verified.png
+# Loose screenshot files at repo root only (giữ docs/screenshots/ để minh họa)
+/*.png
 
 # Android build outputs (keep source, ignore binaries)
 frontend/android/app/build/

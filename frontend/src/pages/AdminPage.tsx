@@ -94,15 +94,21 @@ export function AdminPage() {
                 </select>
               </div>
               <div className="col-span-6 sm:col-span-4">
-                <select
-                  value={u.plan}
-                  onChange={(e) => changePlan(u.id, e.target.value as Plan)}
-                  className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
-                >
-                  <option value="FREE">Free</option>
-                  <option value="PRO">Pro</option>
-                  <option value="MAX">Max</option>
-                </select>
+                {u.role === "USER" ? (
+                  <select
+                    value={u.plan}
+                    onChange={(e) => changePlan(u.id, e.target.value as Plan)}
+                    className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
+                  >
+                    <option value="FREE">Free</option>
+                    <option value="PRO">Pro</option>
+                    <option value="MAX">Max</option>
+                  </select>
+                ) : (
+                  <span className="block px-1 py-1.5 text-sm text-ink-faint">
+                    Không áp dụng
+                  </span>
+                )}
               </div>
             </div>
           ))}

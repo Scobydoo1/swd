@@ -29,6 +29,26 @@ export function PricingPage() {
     }
   };
 
+  // Chỉ Sinh viên cần gói dịch vụ; Giảng viên & Admin được miễn.
+  if (user && user.role !== "USER") {
+    return (
+      <div className="grid h-full place-items-center p-8 text-center">
+        <div className="max-w-md">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent/12 text-accent">
+            <IconSpark size={28} />
+          </div>
+          <h1 className="font-display text-xl font-bold text-ink">
+            Tài khoản của bạn không cần gói dịch vụ
+          </h1>
+          <p className="mt-2 text-sm text-ink-faint">
+            Gói Free / Pro / Max chỉ dành cho sinh viên. Giảng viên và quản trị
+            viên được sử dụng đầy đủ tính năng mà không cần đăng ký.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-8">
       <div className="mx-auto max-w-5xl">

@@ -15,9 +15,10 @@ from app.modules.courses.models import Chapter, Course
 from app.modules.quizzes.models import Question, Quiz
 from app.modules.users.models import Plan, Role, User
 
+# Chỉ Sinh viên có gói dịch vụ; Giảng viên & Admin được miễn (plan FREE bị bỏ qua).
 DEMO_USERS = [
-    ("admin@demo.com", "admin123", "Quản trị viên", Role.ADMIN, Plan.MAX),
-    ("lecturer@demo.com", "lecturer123", "Giảng viên Demo", Role.LECTURER, Plan.PRO),
+    ("admin@demo.com", "admin123", "Quản trị viên", Role.ADMIN, Plan.FREE),
+    ("lecturer@demo.com", "lecturer123", "Giảng viên Demo", Role.LECTURER, Plan.FREE),
     ("student@demo.com", "student123", "Sinh viên Demo", Role.USER, Plan.FREE),
 ]
 

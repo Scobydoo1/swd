@@ -30,9 +30,9 @@ class Document(Base):
     uploaded_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
-    filename: Mapped[str] = mapped_column(String)
+    filename: Mapped[str] = mapped_column(String(512))
     file_type: Mapped[FileType] = mapped_column(Enum(FileType))
     status: Mapped[Status] = mapped_column(Enum(Status), default=Status.PROCESSING)
     num_chunks: Mapped[int] = mapped_column(Integer, default=0)
-    error: Mapped[str | None] = mapped_column(String, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

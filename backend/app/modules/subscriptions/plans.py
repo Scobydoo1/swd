@@ -18,7 +18,7 @@ PLANS: list[dict] = [
             "20 câu hỏi mỗi phút",
             "Hỏi đáp RAG có trích dẫn nguồn",
             "Làm quiz của giảng viên",
-            "Giảng viên: tối đa 3 tài liệu, 2 quiz",
+            "Lưu lịch sử hội thoại cơ bản",
         ],
     },
     {
@@ -35,7 +35,7 @@ PLANS: list[dict] = [
             "60 câu hỏi mỗi phút",
             "Lịch sử hội thoại không giới hạn",
             "Làm mọi quiz, xem lại kết quả",
-            "Giảng viên: 50 tài liệu, 20 quiz, xem thống kê làm bài",
+            "Ưu tiên truy xuất tài liệu khi hỏi đáp",
         ],
     },
     {
@@ -50,7 +50,7 @@ PLANS: list[dict] = [
         "features": [
             "Câu hỏi gần như không giới hạn (120/phút)",
             "Ưu tiên xử lý phản hồi",
-            "Giảng viên: tài liệu & quiz không giới hạn",
+            "Làm mọi quiz, xem lại kết quả & lời giải",
             "Hỗ trợ ưu tiên",
         ],
     },

@@ -13,7 +13,7 @@ from collections import defaultdict, deque
 from fastapi import Depends, HTTPException, status
 
 from app.modules.subscriptions.plans import chat_per_min
-from app.modules.users.models import User
+from app.modules.users.models import Role, User
 from app.shared.dependencies import get_current_user
 
 
@@ -23,6 +23,10 @@ class RateLimiter:
         self._hits: dict[int, deque[float]] = defaultdict(deque)
 
     def __call__(self, user: User = Depends(get_current_user)) -> User:
+        # Chỉ Sinh viên (USER) bị giới hạn theo gói. Giảng viên & Admin
+        # không cần subscription nên được dùng không giới hạn.
+        if user.role != Role.USER:
+            return user
         max_calls = chat_per_min(user.plan)
         now = time.monotonic()
         hits = self._hits[user.id]

@@ -80,6 +80,7 @@ classDiagram
         +str password_hash
         +str full_name
         +Role role
+        +Plan plan
         +datetime created_at
     }
     class Role {
@@ -87,6 +88,12 @@ classDiagram
         ADMIN
         LECTURER
         USER
+    }
+    class Plan {
+        <<enumeration>>
+        FREE
+        PRO
+        MAX
     }
     class Course {
         +int id
@@ -143,16 +150,45 @@ classDiagram
         +int page
         +float score
     }
+    class Quiz {
+        +int id
+        +int course_id
+        +str title
+        +int created_by
+        +datetime created_at
+    }
+    class Question {
+        +int id
+        +int quiz_id
+        +str text
+        +json options
+        +int correct_index
+        +int order
+    }
+    class QuizAttempt {
+        +int id
+        +int quiz_id
+        +int user_id
+        +float score
+        +json answers
+        +datetime created_at
+    }
 
     User "1" --> "0..*" Course : owns (Lecturer)
     User "1" --> "0..*" Document : uploads
     User "1" --> "0..*" ChatSession : has
+    User "1" --> "0..*" Quiz : creates
+    User "1" --> "0..*" QuizAttempt : attempts
     Course "1" --> "0..*" Chapter
     Course "1" --> "0..*" Document
+    Course "1" --> "0..*" Quiz
     Chapter "1" --> "0..*" Document
     ChatSession "1" --> "0..*" Message
     Message "1" --> "0..*" Citation : contains
+    Quiz "1" --> "1..*" Question
+    Quiz "1" --> "0..*" QuizAttempt
     User --> Role
+    User --> Plan
     Document --> FileType
     Document --> Status
 ```
@@ -403,10 +439,15 @@ erDiagram
     USER ||--o{ COURSE : "owns (Lecturer)"
     USER ||--o{ DOCUMENT : uploads
     USER ||--o{ CHATSESSION : has
+    USER ||--o{ QUIZ : creates
+    USER ||--o{ QUIZATTEMPT : attempts
     COURSE ||--o{ CHAPTER : contains
     COURSE ||--o{ DOCUMENT : groups
+    COURSE ||--o{ QUIZ : has
     CHAPTER ||--o{ DOCUMENT : "optional"
     CHATSESSION ||--o{ MESSAGE : contains
+    QUIZ ||--o{ QUIZQUESTION : contains
+    QUIZ ||--o{ QUIZATTEMPT : "graded by"
 
     USER {
         int id PK
@@ -414,6 +455,7 @@ erDiagram
         string password_hash
         string full_name
         enum role "ADMIN|LECTURER|USER"
+        enum plan "FREE|PRO|MAX"
         datetime created_at
     }
     COURSE {
@@ -453,9 +495,34 @@ erDiagram
         json citations_json
         datetime created_at
     }
+    QUIZ {
+        int id PK
+        int course_id FK
+        string title
+        int created_by FK
+        datetime created_at
+    }
+    QUIZQUESTION {
+        int id PK
+        int quiz_id FK
+        text text
+        json options_json
+        int correct_index
+        int order
+    }
+    QUIZATTEMPT {
+        int id PK
+        int quiz_id FK
+        int user_id FK
+        float score
+        json answers_json
+        datetime created_at
+    }
 ```
 
 > Vector + chunk text **không** lưu trong SQLite mà nằm trong ChromaDB, kèm metadata `{document_id, course_id, chapter, chunk_index, source_text, page}`.
+>
+> 📄 **DDL chạy được:** xem [`docs/schema.sql`](schema.sql) — physical schema chạy trực tiếp bằng `sqlite3 maple.db < docs/schema.sql`.
 
 ---
 

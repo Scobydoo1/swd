@@ -82,6 +82,8 @@ export function AppLayout() {
   const [q, setQ] = useState("");
 
   const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
+  // Chỉ Sinh viên có gói dịch vụ; Giảng viên & Admin được miễn.
+  const isStudent = user?.role === "USER";
   const onChat = location.pathname === "/";
 
   // Trên mobile, đóng drawer sau khi điều hướng / chọn cuộc trò chuyện.
@@ -213,7 +215,9 @@ export function AppLayout() {
             <NavItem to="/documents" label="Tài liệu" icon={<IconBook size={19} />} onClick={closeOnMobile} />
           )}
           <NavItem to="/quizzes" label="Quiz" icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
-          <NavItem to="/pricing" label="Gói dịch vụ" icon={<IconSpark size={19} />} onClick={closeOnMobile} />
+          {isStudent && (
+            <NavItem to="/pricing" label="Gói dịch vụ" icon={<IconSpark size={19} />} onClick={closeOnMobile} />
+          )}
           {user?.role === "ADMIN" && (
             <NavItem to="/admin" label="Người dùng" icon={<IconUsers size={19} />} onClick={closeOnMobile} />
           )}
@@ -267,9 +271,11 @@ export function AppLayout() {
               </div>
               <div className="flex items-center gap-1.5 text-[12.5px] text-ink-faint">
                 <span className="truncate">{roleLabel[user?.role ?? "USER"]}</span>
-                <span className="flex-none rounded-full bg-accent/12 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-accent">
-                  {user?.plan ?? "FREE"}
-                </span>
+                {isStudent && (
+                  <span className="flex-none rounded-full bg-accent/12 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-accent">
+                    {user?.plan ?? "FREE"}
+                  </span>
+                )}
               </div>
             </div>
             <button

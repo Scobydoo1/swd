@@ -46,4 +46,10 @@ def update_plan(
     user = repo.get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    # Gói dịch vụ chỉ áp dụng cho Sinh viên; Giảng viên & Admin được miễn.
+    if user.role != Role.USER:
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ tài khoản sinh viên mới có gói dịch vụ.",
+        )
     return repo.update_plan(user, payload.plan)

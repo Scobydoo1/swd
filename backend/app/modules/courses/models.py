@@ -8,8 +8,8 @@ class Course(Base):
     __tablename__ = "courses"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String)
-    description: Mapped[str] = mapped_column(String, default="")
+    name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(String(1000), default="")
     owner_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
@@ -24,7 +24,7 @@ class Chapter(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"))
-    title: Mapped[str] = mapped_column(String)
+    title: Mapped[str] = mapped_column(String(255))
     order: Mapped[int] = mapped_column(Integer, default=0)
 
     course: Mapped[Course] = relationship(back_populates="chapters")

@@ -15,7 +15,7 @@ Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and So
 | **Chat & Hỏi đáp RAG** | Chat theo ngữ cảnh hội thoại, trích dẫn nguồn, giới hạn trong tài liệu đã index |
 | **Quản lý tài liệu** | Upload PDF/DOCX/PPTX → tự động chunk & embed, xem trạng thái (PROCESSING / INDEXED / FAILED) |
 | **Quiz trắc nghiệm** | Lecturer tạo quiz; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng |
-| **Gói dịch vụ** | 3 gói Free / Pro / Max, rate-limit chat theo gói, nâng cấp tự phục vụ |
+| **Gói dịch vụ** | 3 gói Free / Pro / Max cho **sinh viên** (rate-limit chat theo gói, nâng cấp tự phục vụ); giảng viên & admin được miễn |
 | **Phân quyền 3 actor** | Admin (toàn quyền), Lecturer (tài liệu + quiz + môn học), User/Student (chat + làm quiz) |
 | **App Android** | APK cài đặt từ cùng codebase React, build qua Capacitor |
 
@@ -478,13 +478,52 @@ GOOGLE_CHAT_MODEL=gemini-2.5-flash
 GOOGLE_EMBED_MODEL=gemini-embedding-001
 
 CHROMA_DIR=./data/chroma
+
+# CSDL: mặc định SQLite (chạy ngay). Đổi sang SQL Server — xem mục bên dưới.
 DATABASE_URL=sqlite:///./data/app.db
+
 JWT_SECRET=change-me-in-production
 JWT_EXPIRE_MINUTES=720
 
 # CORS: thêm origin localhost cho app Capacitor (Android)
 CORS_ORIGINS=http://localhost:5173,http://localhost,https://localhost,capacitor://localhost
 ```
+
+### Kết nối SQL Server (tùy chọn)
+
+Mặc định dự án dùng **SQLite** (file `data/app.db`, không cần cài gì). Có thể chuyển
+sang **Microsoft SQL Server** chỉ bằng cách đổi `DATABASE_URL` — code đã tự nhận diện
+dialect (chỉ SQLite mới chạy migration `PRAGMA`, các kiểu chuỗi đã có độ dài để index được trên SQL Server).
+
+**Bước 1 — Cài driver** (ngoài `requirements.txt` đã có `pyodbc`, cần ODBC Driver trên máy):
+
+- Windows: cài sẵn **ODBC Driver 17 for SQL Server** (thường có cùng SQL Server / SSMS).
+- Bật **TCP/IP** và dịch vụ **SQL Server Browser** nếu dùng named instance.
+
+**Bước 2 — Tạo database** (một lần) bằng SSMS hoặc `sqlcmd`:
+
+```sql
+CREATE DATABASE maple;
+```
+
+**Bước 3 — Đặt `DATABASE_URL` trong `.env`** (ví dụ user `sa` / mật khẩu `123`, instance tên `THANH`):
+
+```env
+DATABASE_URL=mssql+pyodbc://sa:123@localhost\THANH/maple?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes
+```
+
+- **Default instance** (không có tên): bỏ `\THANH` → `...@localhost/maple?driver=...`
+- **Cổng cụ thể**: `...@localhost,1433/maple?driver=...`
+- Mật khẩu có ký tự đặc biệt (`@ : / \`) phải URL-encode (vd `@` → `%40`).
+
+**Bước 4 — Tạo bảng + seed** rồi chạy như bình thường:
+
+```bash
+python seed.py                     # init_db() tự CREATE tất cả bảng trong SQL Server
+uvicorn app.main:app --reload --port 8000
+```
+
+> Lược đồ vật lý đầy đủ (DDL) ở [docs/schema.sql](docs/schema.sql).
 
 ### 2. Frontend (Web)
 
@@ -524,9 +563,31 @@ npm run cap:open
 
 | Vai trò | Email | Mật khẩu | Gói |
 |---------|-------|----------|-----|
-| Admin | admin@demo.com | admin123 | MAX |
-| Lecturer | lecturer@demo.com | lecturer123 | PRO |
+| Admin | admin@demo.com | admin123 | — (không cần) |
+| Lecturer | lecturer@demo.com | lecturer123 | — (không cần) |
 | Student | student@demo.com | student123 | FREE |
+
+> Gói dịch vụ **chỉ áp dụng cho Sinh viên**. Giảng viên & Admin dùng đầy đủ tính năng, không bị rate-limit theo gói.
+
+---
+
+## Ảnh chụp giao diện
+
+**Web** (React + Vite + Tailwind)
+
+| Hỏi đáp (RAG) | Tài liệu | Quiz |
+|---|---|---|
+| ![Chat](docs/screenshots/web/02-chat.png) | ![Tài liệu](docs/screenshots/web/03-documents.png) | ![Quiz](docs/screenshots/web/04-quizzes.png) |
+
+| Gói dịch vụ (Sinh viên) | Tạo quiz (Lecturer) | Quản lý người dùng (Admin) |
+|---|---|---|
+| ![Pricing](docs/screenshots/web/05-pricing.png) | ![Tạo quiz](docs/screenshots/web/07-quiz-create-modal.png) | ![Admin](docs/screenshots/web/06-admin-users.png) |
+
+**Android** (Capacitor — cùng codebase)
+
+| Đăng nhập | Hỏi đáp | Quiz | Menu Giảng viên (không có gói) |
+|---|---|---|---|
+| ![Login](docs/screenshots/mobile/01-launch.png) | ![Chat](docs/screenshots/mobile/04-chat.png) | ![Quiz](docs/screenshots/mobile/05-quizzes.png) | ![Lecturer](docs/screenshots/mobile/06-lecturer-nav.png) |
 
 ---
 
@@ -540,9 +601,10 @@ npm run cap:open
 1. Lecturer → **Quiz** → **Tạo quiz** → điền câu hỏi + đáp án → lưu.
 2. Student → **Quiz** → **Làm bài** → chọn đáp án → **Nộp bài** → xem điểm + đáp án đúng tức thì.
 
-**Gói dịch vụ:**
-- Vào **Gói dịch vụ** → xem Free / Pro / Max → nâng cấp.
-- Admin → trang **Người dùng** → cột Plan → đổi gói bất kỳ user.
+**Gói dịch vụ (chỉ Sinh viên):**
+- Student → **Gói dịch vụ** → xem Free / Pro / Max → nâng cấp cho chính mình.
+- Admin → trang **Người dùng** → đổi gói cho tài khoản **sinh viên** (giảng viên/admin hiển thị *Không áp dụng*).
+- Giảng viên & Admin **không thấy** trang Gói dịch vụ và không bị giới hạn câu hỏi theo gói.
 
 ---
 

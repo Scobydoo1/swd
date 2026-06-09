@@ -11,7 +11,7 @@ class Quiz(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"))
-    title: Mapped[str] = mapped_column(String)
+    title: Mapped[str] = mapped_column(String(255))
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )

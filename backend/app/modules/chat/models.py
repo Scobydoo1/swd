@@ -22,7 +22,7 @@ class ChatSession(Base):
     course_id: Mapped[int | None] = mapped_column(
         ForeignKey("courses.id"), nullable=True
     )
-    title: Mapped[str] = mapped_column(String, default="Cuộc trò chuyện mới")
+    title: Mapped[str] = mapped_column(String(255), default="Cuộc trò chuyện mới")
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
