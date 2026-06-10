@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 720
 
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = (
+        "http://localhost:5173,http://localhost,https://localhost,"
+        "capacitor://localhost,https://scobydoo1.github.io"
+    )
 
     @property
     def cors_origin_list(self) -> list[str]:
