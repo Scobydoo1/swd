@@ -5,6 +5,7 @@ pydantic-settings>=2.7.0
 email-validator>=2.2.0
 sqlalchemy>=2.0.36
 pyodbc>=5.2.0          # driver SQL Server (mssql+pyodbc); SQLite không cần
+psycopg2-binary>=2.9.10  # driver Postgres (Neon) cho metadata + pgvector
 python-multipart>=0.0.17
 python-jose[cryptography]>=3.3.0
 bcrypt>=4.2.0

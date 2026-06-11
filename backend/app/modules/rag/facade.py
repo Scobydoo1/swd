@@ -5,13 +5,13 @@ tiếp vào embedder/vector store/retriever.
 """
 from app.modules.rag.embedder import Embedder
 from app.modules.rag.retriever import Retriever
-from app.modules.rag.vector_store import VectorStore
+from app.modules.rag.vector_store import get_vector_store
 
 
 class RagFacade:
     def __init__(self) -> None:
         self.embedder = Embedder()
-        self.store = VectorStore()
+        self.store = get_vector_store()
         self.retriever = Retriever(self.embedder, self.store)
 
     def index_chunks(

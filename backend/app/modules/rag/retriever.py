@@ -1,10 +1,10 @@
-"""Retriever: similarity search trên ChromaDB + filter theo môn/chương."""
+"""Retriever: similarity search trên vector store + filter theo môn/chương."""
 from app.modules.rag.embedder import Embedder
-from app.modules.rag.vector_store import VectorStore
 
 
 class Retriever:
-    def __init__(self, embedder: Embedder, store: VectorStore) -> None:
+    # store: VectorStore (Chroma) hoặc PgVectorStore — cùng interface 3 method.
+    def __init__(self, embedder: Embedder, store) -> None:
         self._embedder = embedder
         self._store = store
 
