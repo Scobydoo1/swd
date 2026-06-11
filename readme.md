@@ -569,6 +569,41 @@ npm run cap:open
 
 > Gói dịch vụ **chỉ áp dụng cho Sinh viên**. Giảng viên & Admin dùng đầy đủ tính năng, không bị rate-limit theo gói.
 
+> **Lưu ý:** Không còn đăng ký công khai. Tài khoản Sinh viên/Giảng viên do **Admin cấp** trong trang Quản lý người dùng — hệ thống tự sinh mật khẩu và gửi qua email; người dùng cũng có thể **đăng nhập bằng Google** với email đã được cấp. Admin đầu tiên seed từ env `ADMIN_EMAIL`/`ADMIN_PASSWORD` khi khởi động (hoặc chạy `python seed.py` để có dữ liệu demo).
+
+---
+
+## Deploy free: Vercel + Render + Neon
+
+### 1. Neon (Postgres + pgvector — dữ liệu bền vững)
+1. Tạo project free tại https://neon.tech → copy connection string.
+2. Đổi prefix `postgresql://` thành `postgresql+psycopg2://` khi dùng làm `DATABASE_URL`.
+   (pgvector được bật tự động bởi app: `CREATE EXTENSION IF NOT EXISTS vector`.)
+
+### 2. Render (backend FastAPI)
+1. https://render.com → New → Blueprint → trỏ repo này (đọc [render.yaml](render.yaml)).
+2. Điền env: `DATABASE_URL` (Neon), `GOOGLE_API_KEY`, `GOOGLE_OAUTH_CLIENT_ID`,
+   `SMTP_USER`/`SMTP_PASSWORD` (Gmail App Password), `ADMIN_EMAIL`/`ADMIN_PASSWORD`,
+   `CORS_ORIGINS` (gồm domain Vercel), `APP_LOGIN_URL` (URL Vercel).
+3. Lưu ý free tier: service ngủ sau ~15 phút không dùng — request đầu mất 30–60s đánh thức.
+
+### 3. Vercel (frontend React)
+1. https://vercel.com → Add New Project → import repo, **Root Directory: `frontend`**.
+2. Env: `VITE_API_BASE=https://<app>.onrender.com/api`, `VITE_GOOGLE_CLIENT_ID=<client-id>`.
+3. Deploy → lấy URL `https://<app>.vercel.app`, quay lại Render thêm vào `CORS_ORIGINS`.
+
+### 4. Google OAuth Client ID (đăng nhập Google)
+1. https://console.cloud.google.com → APIs & Services → Credentials →
+   Create Credentials → OAuth client ID → Web application.
+2. Authorized JavaScript origins: `http://localhost:5173` và `https://<app>.vercel.app`.
+3. Copy Client ID → set `GOOGLE_OAUTH_CLIENT_ID` (Render) và `VITE_GOOGLE_CLIENT_ID` (Vercel) — cùng một giá trị.
+
+### 5. Gmail App Password (gửi email cấp tài khoản)
+1. Bật 2FA cho Gmail → https://myaccount.google.com/apppasswords → tạo App Password.
+2. Set `SMTP_USER=<gmail của bạn>`, `SMTP_PASSWORD=<app password>` trên Render.
+
+> Vì sao không deploy backend lên Vercel? Vercel serverless không giữ file giữa các request — SQLite/ChromaDB sẽ mất dữ liệu. Render chạy process thường, còn dữ liệu (metadata + vector) đặt ở Neon Postgres nên không mất khi service ngủ/restart.
+
 ---
 
 ## Ảnh chụp giao diện
