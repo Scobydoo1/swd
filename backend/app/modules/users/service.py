@@ -80,3 +80,24 @@ class UserService:
         # 4) Xóa người dùng.
         self.db.delete(user)
         self.db.commit()
+
+
+def ensure_default_admin(db: Session) -> None:
+    """Seed Admin đầu tiên từ env khi startup.
+
+    Không còn đăng ký công khai nên hệ thống cần ít nhất một Admin để cấp
+    tài khoản. Bỏ qua nếu đã có admin hoặc env chưa cấu hình.
+    """
+    if not settings.admin_email or not settings.admin_password:
+        return
+    if db.query(User).filter(User.role == Role.ADMIN).first():
+        return
+    repo = UserRepository(db)
+    if repo.get_by_email(settings.admin_email):
+        return
+    repo.create(
+        email=settings.admin_email,
+        password_hash=hash_password(settings.admin_password),
+        full_name=settings.admin_full_name,
+        role=Role.ADMIN,
+    )

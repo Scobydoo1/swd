@@ -25,6 +25,15 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     init_db()
+    # Seed Admin đầu tiên (không còn đăng ký công khai).
+    from app.database import SessionLocal
+    from app.modules.users.service import ensure_default_admin
+
+    db = SessionLocal()
+    try:
+        ensure_default_admin(db)
+    finally:
+        db.close()
 
 
 @app.get("/api/health")
