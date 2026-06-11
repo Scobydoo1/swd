@@ -54,11 +54,13 @@ def _auth_headers(email: str, role_name: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+# Lưu ý: không dùng domain đặc biệt (.local/.test) — email-validator từ chối
+# khi serialize EmailStr trong response.
 @pytest.fixture()
 def admin_headers(client) -> dict[str, str]:
-    return _auth_headers("admin@test.local", "ADMIN")
+    return _auth_headers("admin@maple-tests.com", "ADMIN")
 
 
 @pytest.fixture()
 def student_headers(client) -> dict[str, str]:
-    return _auth_headers("student@test.local", "USER")
+    return _auth_headers("student@maple-tests.com", "USER")

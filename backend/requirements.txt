@@ -8,6 +8,7 @@ pyodbc>=5.2.0          # driver SQL Server (mssql+pyodbc); SQLite không cần
 python-multipart>=0.0.17
 python-jose[cryptography]>=3.3.0
 bcrypt>=4.2.0
+google-auth>=2.35.0    # verify Google ID token (đăng nhập Google)
 google-genai>=1.0.0
 chromadb>=0.6.0
 langchain-text-splitters>=0.3.2

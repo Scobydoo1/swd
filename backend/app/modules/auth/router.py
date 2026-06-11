@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.modules.auth.schemas import TokenResponse
+from app.modules.auth.schemas import GoogleLoginRequest, TokenResponse
 from app.modules.auth.service import AuthService
 from app.modules.users.schemas import UserOut
 from app.shared.dependencies import get_current_user
@@ -20,6 +20,12 @@ def login(
 ):
     # OAuth2 form uses `username` field; we treat it as email.
     return AuthService(db).login(form.username, form.password)
+
+
+# Đăng nhập bằng Google (ID token từ Google Identity Services).
+@router.post("/google", response_model=TokenResponse)
+def google_login(req: GoogleLoginRequest, db: Session = Depends(get_db)):
+    return AuthService(db).login_google(req.id_token)
 
 
 @router.get("/me", response_model=UserOut)
