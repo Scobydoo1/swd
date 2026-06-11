@@ -17,11 +17,49 @@ export function AdminPage() {
   const { user: me } = useAuth();
   const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const [users, setUsers] = useState<User[]>([]);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newRole, setNewRole] = useState<Role>("USER");
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
 
   const load = () => api.get<User[]>("/users").then((r) => setUsers(r.data));
   useEffect(() => {
     load();
   }, []);
+
+  // FR-ADM-01: Admin cấp tài khoản — mật khẩu tự sinh gửi qua email.
+  const createUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNotice(null);
+    setCreating(true);
+    try {
+      const { data } = await api.post<{
+        user: User;
+        email_sent: boolean;
+        temp_password: string | null;
+      }>("/users", { email: newEmail, full_name: newName, role: newRole });
+      setNotice({
+        ok: true,
+        text: data.email_sent
+          ? t("admin.created", { email: data.user.email })
+          : t("admin.createdNoEmail", { password: data.temp_password ?? "" }),
+      });
+      setNewEmail("");
+      setNewName("");
+      setNewRole("USER");
+      load();
+    } catch (err: any) {
+      setNotice({
+        ok: false,
+        text: err.response?.data?.detail ?? t("common.error"),
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const changeRole = async (id: number, role: Role) => {
     await api.patch(`/users/${id}/role`, { role });
@@ -61,6 +99,61 @@ export function AdminPage() {
           </div>
           <p className="mt-1 text-sm text-ink-faint">{t("admin.subtitle")}</p>
         </header>
+
+        <form
+          onSubmit={createUser}
+          className="mb-6 rounded-[20px] border border-line bg-surface p-5"
+        >
+          <h2 className="font-display text-lg font-bold text-ink">
+            {t("admin.createUser")}
+          </h2>
+          <p className="mt-1 text-xs text-ink-faint">
+            {t("admin.createUserHint")}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto]">
+            <input
+              type="email"
+              required
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder={t("admin.email")}
+              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent placeholder:text-ink-faint"
+            />
+            <input
+              required
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={t("admin.fullName")}
+              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent placeholder:text-ink-faint"
+            />
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as Role)}
+              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            >
+              <option value="USER">{t("role.USER")}</option>
+              <option value="LECTURER">{t("role.LECTURER")}</option>
+            </select>
+            <button
+              disabled={creating}
+              className="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-60"
+              style={{ background: "var(--accent)" }}
+            >
+              {creating ? t("admin.creating") : t("admin.create")}
+            </button>
+          </div>
+          {notice && (
+            <p
+              className={`mt-3 rounded-xl px-4 py-2.5 text-sm ${
+                notice.ok
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-danger/10 text-danger"
+              }`}
+            >
+              {notice.text}
+            </p>
+          )}
+        </form>
 
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint sm:px-5">

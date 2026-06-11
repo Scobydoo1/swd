@@ -138,6 +138,16 @@ const vi: Dict = {
   "admin.deleteUserConfirm":
     'Xóa người dùng "{name}"? Phiên chat và lượt làm quiz của họ sẽ bị xóa.',
   "admin.deleteUserFailed": "Xóa người dùng thất bại",
+  "admin.createUser": "Tạo tài khoản",
+  "admin.createUserHint":
+    "Mật khẩu tự sinh và gửi tới email người dùng. Họ cũng có thể đăng nhập bằng Google với email này.",
+  "admin.fullName": "Họ và tên",
+  "admin.email": "Email",
+  "admin.create": "Tạo",
+  "admin.creating": "Đang tạo…",
+  "admin.created": "Đã tạo tài khoản và gửi email tới {email}.",
+  "admin.createdNoEmail":
+    "Đã tạo tài khoản nhưng gửi email thất bại. Mật khẩu tạm: {password} — hãy gửi cho người dùng.",
 
   // pricing
   "pricing.noNeedTitle": "Tài khoản của bạn không cần gói dịch vụ",
@@ -307,6 +317,16 @@ const en: Dict = {
   "admin.deleteUserConfirm":
     'Delete user "{name}"? Their chat sessions and quiz attempts will be removed.',
   "admin.deleteUserFailed": "Failed to delete user",
+  "admin.createUser": "Create account",
+  "admin.createUserHint":
+    "A password is generated and emailed to the user. They can also sign in with Google using this email.",
+  "admin.fullName": "Full name",
+  "admin.email": "Email",
+  "admin.create": "Create",
+  "admin.creating": "Creating…",
+  "admin.created": "Account created — credentials emailed to {email}.",
+  "admin.createdNoEmail":
+    "Account created but the email failed to send. Temp password: {password} — share it with the user.",
 
   // pricing
   "pricing.noNeedTitle": "Your account doesn't need a plan",
