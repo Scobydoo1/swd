@@ -23,6 +23,23 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 720
 
+    # Google OAuth (đăng nhập Google) — Client ID từ Google Cloud Console.
+    google_oauth_client_id: str = ""
+
+    # Gmail SMTP (App Password) để gửi email cấp tài khoản.
+    smtp_user: str = ""
+    smtp_password: str = ""
+    mail_from: str = ""  # mặc định dùng smtp_user
+    app_login_url: str = "http://localhost:5173"
+
+    # Seed Admin đầu tiên khi startup (vì không còn đăng ký công khai).
+    admin_email: str = ""
+    admin_password: str = ""
+    admin_full_name: str = "Quản trị viên"
+
+    # Vector store backend: "chroma" (dev local) | "pgvector" (Neon/Postgres).
+    vector_backend: str = "chroma"
+
     cors_origins: str = (
         "http://localhost:5173,http://localhost,https://localhost,"
         "capacitor://localhost,https://scobydoo1.github.io"
