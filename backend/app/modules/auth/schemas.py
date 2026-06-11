@@ -1,14 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
-from app.modules.users.models import Role
 from app.modules.users.schemas import UserOut
-
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
-    role: Role = Role.USER
 
 
 class TokenResponse(BaseModel):

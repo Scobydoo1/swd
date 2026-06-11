@@ -1,29 +1,14 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.modules.auth.schemas import RegisterRequest, TokenResponse
-from app.modules.auth.security import (
-    create_access_token,
-    hash_password,
-    verify_password,
-)
+from app.modules.auth.schemas import TokenResponse
+from app.modules.auth.security import create_access_token, verify_password
 from app.modules.users.repository import UserRepository
 
 
 class AuthService:
     def __init__(self, db: Session):
         self.repo = UserRepository(db)
-
-    def register(self, req: RegisterRequest) -> TokenResponse:
-        if self.repo.get_by_email(req.email):
-            raise HTTPException(status_code=400, detail="Email đã được đăng ký")
-        user = self.repo.create(
-            email=req.email,
-            password_hash=hash_password(req.password),
-            full_name=req.full_name,
-            role=req.role,
-        )
-        return self._token_for(user)
 
     def login(self, email: str, password: str) -> TokenResponse:
         user = self.repo.get_by_email(email)
