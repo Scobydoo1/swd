@@ -95,6 +95,21 @@ export function DocumentsPage() {
     load();
   };
 
+  const removeCourse = async () => {
+    const course = courses.find((c) => c.id === courseId);
+    if (!course) return;
+    if (!confirm(t("docs.deleteCourseConfirm", { name: course.name }))) return;
+    setError("");
+    try {
+      await api.delete(`/courses/${course.id}`);
+      setCourseId(null);
+      await loadCourses();
+      await load();
+    } catch (e: any) {
+      setError(e.response?.data?.detail ?? t("docs.deleteCourseFailed"));
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-8">
       <div className="mx-auto max-w-5xl">
@@ -134,6 +149,15 @@ export function DocumentsPage() {
               className="rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-surface-2"
             >
               {showCreate ? t("common.cancel") : t("docs.createCourse")}
+            </button>
+          )}
+          {canManage && courseId && (
+            <button
+              onClick={removeCourse}
+              title={t("docs.deleteCourse")}
+              className="flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium text-ink-faint transition hover:border-danger/50 hover:bg-danger/10 hover:text-danger"
+            >
+              <IconTrash size={15} /> {t("docs.deleteCourse")}
             </button>
           )}
         </div>

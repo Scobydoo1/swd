@@ -3,19 +3,16 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 import { useLang } from "../i18n/LanguageContext";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { IconMaple, IconMoon, IconSun } from "../components/Icons";
-import type { Role } from "../types";
 
 export function LoginPage() {
-  const { user, login, register } = useAuth();
+  const { user, login, loginWithGoogle } = useAuth();
   const { dark, toggle } = useTheme();
   const { t } = useLang();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<Role>("USER");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -26,8 +23,20 @@ export function LoginPage() {
     setError("");
     setBusy(true);
     try {
-      if (mode === "login") await login(email, password);
-      else await register(email, password, fullName, role);
+      await login(email, password);
+      navigate("/");
+    } catch (err: any) {
+      setError(err.response?.data?.detail ?? t("common.error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const googleLogin = async (idToken: string) => {
+    setError("");
+    setBusy(true);
+    try {
+      await loginWithGoogle(idToken);
       navigate("/");
     } catch (err: any) {
       setError(err.response?.data?.detail ?? t("common.error"));
@@ -74,21 +83,11 @@ export function LoginPage() {
         {/* Form panel */}
         <div className="p-8 sm:p-10">
           <h2 className="font-display text-2xl font-bold text-ink">
-            {mode === "login" ? t("login.signIn") : t("login.createAccount")}
+            {t("login.signIn")}
           </h2>
-          <p className="mt-1 text-sm text-ink-faint">
-            {mode === "login" ? t("login.welcomeBack") : t("login.fillToStart")}
-          </p>
+          <p className="mt-1 text-sm text-ink-faint">{t("login.welcomeBack")}</p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
-            {mode === "register" && (
-              <Field
-                label={t("login.fullName")}
-                value={fullName}
-                onChange={setFullName}
-                placeholder={t("login.fullNamePlaceholder")}
-              />
-            )}
             <Field
               label={t("login.email")}
               type="email"
@@ -103,22 +102,6 @@ export function LoginPage() {
               onChange={setPassword}
               placeholder="••••••••"
             />
-            {mode === "register" && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-ink-soft">
-                  {t("login.role")}
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none transition focus:border-accent"
-                >
-                  <option value="USER">{t("role.USER")}</option>
-                  <option value="LECTURER">{t("role.LECTURER")}</option>
-                  <option value="ADMIN">{t("role.ADMIN")}</option>
-                </select>
-              </div>
-            )}
 
             {error && (
               <p className="rounded-xl bg-danger/10 px-4 py-2.5 text-sm text-danger">
@@ -131,34 +114,23 @@ export function LoginPage() {
               className="w-full rounded-xl py-3 font-semibold text-white shadow-maple-sm transition hover:brightness-105 disabled:opacity-60"
               style={{ background: "var(--accent)" }}
             >
-              {busy
-                ? t("login.processing")
-                : mode === "login"
-                  ? t("login.signIn")
-                  : t("login.register")}
+              {busy ? t("login.processing") : t("login.signIn")}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-ink-faint">
-            {mode === "login" ? t("login.noAccount") : t("login.haveAccount")}
-            <button
-              onClick={() => {
-                setMode(mode === "login" ? "register" : "login");
-                setError("");
-              }}
-              className="font-semibold text-accent hover:underline"
-            >
-              {mode === "login" ? t("login.registerNow") : t("login.signIn")}
-            </button>
-          </p>
+          <div className="mt-5 flex items-center gap-3 text-xs text-ink-faint">
+            <span className="h-px flex-1 bg-line" />
+            {t("login.or")}
+            <span className="h-px flex-1 bg-line" />
+          </div>
 
-          {mode === "login" && (
-            <div className="mt-4 rounded-xl bg-surface-2 p-3 text-xs text-ink-faint">
-              {t("login.demoAccounts")}
-              <br />
-              {t("login.demoPassword")}
-            </div>
-          )}
+          <div className="mt-4">
+            <GoogleSignInButton onCredential={googleLogin} />
+          </div>
+
+          <p className="mt-6 text-center text-sm text-ink-faint">
+            {t("login.adminIssued")}
+          </p>
         </div>
       </div>
     </div>

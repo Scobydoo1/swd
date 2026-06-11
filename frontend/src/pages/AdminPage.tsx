@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { useLang } from "../i18n/LanguageContext";
-import { IconSidebar } from "../components/Icons";
+import { IconSidebar, IconTrash } from "../components/Icons";
 import type { Plan, Role, User } from "../types";
 
 const roleBadge: Record<Role, string> = {
@@ -13,6 +14,7 @@ const roleBadge: Record<Role, string> = {
 
 export function AdminPage() {
   const { t } = useLang();
+  const { user: me } = useAuth();
   const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const [users, setUsers] = useState<User[]>([]);
 
@@ -29,6 +31,16 @@ export function AdminPage() {
   const changePlan = async (id: number, plan: Plan) => {
     await api.patch(`/users/${id}/plan`, { plan });
     load();
+  };
+
+  const removeUser = async (u: User) => {
+    if (!confirm(t("admin.deleteUserConfirm", { name: u.full_name }))) return;
+    try {
+      await api.delete(`/users/${u.id}`);
+      load();
+    } catch (e: any) {
+      alert(e.response?.data?.detail ?? t("admin.deleteUserFailed"));
+    }
   };
 
   return (
@@ -53,8 +65,9 @@ export function AdminPage() {
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint sm:px-5">
             <div className="col-span-12 sm:col-span-4">{t("admin.colUser")}</div>
-            <div className="hidden sm:col-span-4 sm:block">{t("admin.colRole")}</div>
-            <div className="hidden sm:col-span-4 sm:block">{t("admin.colPlan")}</div>
+            <div className="hidden sm:col-span-3 sm:block">{t("admin.colRole")}</div>
+            <div className="hidden sm:col-span-3 sm:block">{t("admin.colPlan")}</div>
+            <div className="hidden text-right sm:col-span-2 sm:block">{t("admin.colActions")}</div>
           </div>
           {users.map((u) => (
             <div
@@ -77,7 +90,7 @@ export function AdminPage() {
                   {t(`role.${u.role}`)}
                 </span>
               </div>
-              <div className="col-span-6 sm:col-span-4">
+              <div className="col-span-6 sm:col-span-3">
                 <select
                   value={u.role}
                   onChange={(e) => changeRole(u.id, e.target.value as Role)}
@@ -88,7 +101,7 @@ export function AdminPage() {
                   <option value="ADMIN">{t("role.ADMIN")}</option>
                 </select>
               </div>
-              <div className="col-span-6 sm:col-span-4">
+              <div className="col-span-5 sm:col-span-3">
                 {u.role === "USER" ? (
                   <select
                     value={u.plan}
@@ -103,6 +116,17 @@ export function AdminPage() {
                   <span className="block px-1 py-1.5 text-sm text-ink-faint">
                     {t("admin.notApplicable")}
                   </span>
+                )}
+              </div>
+              <div className="col-span-1 flex justify-end sm:col-span-2">
+                {u.id !== me?.id && (
+                  <button
+                    onClick={() => removeUser(u)}
+                    title={t("admin.deleteUser")}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint transition hover:bg-danger/10 hover:text-danger"
+                  >
+                    <IconTrash size={16} />
+                  </button>
                 )}
               </div>
             </div>

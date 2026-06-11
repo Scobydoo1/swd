@@ -6,18 +6,13 @@ import {
   useState,
 } from "react";
 import { api } from "../api/client";
-import type { Role, TokenResponse, User } from "../types";
+import type { TokenResponse, User } from "../types";
 
 interface AuthCtx {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (
-    email: string,
-    password: string,
-    fullName: string,
-    role: Role
-  ) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -50,17 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   };
 
-  const register = async (
-    email: string,
-    password: string,
-    fullName: string,
-    role: Role
-  ) => {
-    const { data } = await api.post<TokenResponse>("/auth/register", {
-      email,
-      password,
-      full_name: fullName,
-      role,
+  const loginWithGoogle = async (idToken: string) => {
+    const { data } = await api.post<TokenResponse>("/auth/google", {
+      id_token: idToken,
     });
     localStorage.setItem("token", data.access_token);
     setUser(data.user);
@@ -77,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, refresh }),
+    () => ({ user, loading, login, loginWithGoogle, logout, refresh }),
     [user, loading]
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

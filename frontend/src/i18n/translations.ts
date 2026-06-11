@@ -50,21 +50,13 @@ const vi: Dict = {
   "login.feature2": "🔍 Trả lời trong phạm vi tài liệu",
   "login.feature3": "💬 Lịch sử hội thoại theo phiên",
   "login.signIn": "Đăng nhập",
-  "login.createAccount": "Tạo tài khoản",
   "login.welcomeBack": "Chào mừng quay lại!",
-  "login.fillToStart": "Điền thông tin để bắt đầu.",
-  "login.fullName": "Họ và tên",
-  "login.fullNamePlaceholder": "Nguyễn Văn A",
   "login.email": "Email",
   "login.password": "Mật khẩu",
-  "login.role": "Vai trò",
   "login.processing": "Đang xử lý…",
-  "login.register": "Đăng ký",
-  "login.noAccount": "Chưa có tài khoản? ",
-  "login.haveAccount": "Đã có tài khoản? ",
-  "login.registerNow": "Đăng ký ngay",
-  "login.demoAccounts": "Demo: admin@demo.com · lecturer@demo.com · student@demo.com",
-  "login.demoPassword": "Mật khẩu: admin123 / lecturer123 / student123",
+  "login.or": "hoặc",
+  "login.adminIssued":
+    "Tài khoản do Quản trị viên cấp qua email. Chưa có? Liên hệ Admin.",
 
   // chat
   "chat.greetMorning": "Chào buổi sáng",
@@ -110,6 +102,10 @@ const vi: Dict = {
   "docs.course": "Môn học:",
   "docs.noCourse": "Chưa có môn học",
   "docs.createCourse": "+ Tạo môn học",
+  "docs.deleteCourse": "Xóa môn học",
+  "docs.deleteCourseConfirm":
+    'Xóa môn học "{name}"? Toàn bộ tài liệu, vector và quiz của môn sẽ bị xóa.',
+  "docs.deleteCourseFailed": "Xóa môn học thất bại",
   "docs.createCourseTitle": "Tạo môn học mới",
   "docs.courseName": "Tên môn học",
   "docs.descriptionOptional": "Mô tả (tùy chọn)",
@@ -136,7 +132,12 @@ const vi: Dict = {
   "admin.colUser": "Người dùng",
   "admin.colRole": "Vai trò",
   "admin.colPlan": "Gói đăng ký",
+  "admin.colActions": "Thao tác",
   "admin.notApplicable": "Không áp dụng",
+  "admin.deleteUser": "Xóa người dùng",
+  "admin.deleteUserConfirm":
+    'Xóa người dùng "{name}"? Phiên chat và lượt làm quiz của họ sẽ bị xóa.',
+  "admin.deleteUserFailed": "Xóa người dùng thất bại",
 
   // pricing
   "pricing.noNeedTitle": "Tài khoản của bạn không cần gói dịch vụ",
@@ -218,21 +219,13 @@ const en: Dict = {
   "login.feature2": "🔍 Answers within your documents",
   "login.feature3": "💬 Conversation history per session",
   "login.signIn": "Sign in",
-  "login.createAccount": "Create account",
   "login.welcomeBack": "Welcome back!",
-  "login.fillToStart": "Fill in your details to get started.",
-  "login.fullName": "Full name",
-  "login.fullNamePlaceholder": "John Doe",
   "login.email": "Email",
   "login.password": "Password",
-  "login.role": "Role",
   "login.processing": "Processing…",
-  "login.register": "Sign up",
-  "login.noAccount": "Don't have an account? ",
-  "login.haveAccount": "Already have an account? ",
-  "login.registerNow": "Sign up now",
-  "login.demoAccounts": "Demo: admin@demo.com · lecturer@demo.com · student@demo.com",
-  "login.demoPassword": "Passwords: admin123 / lecturer123 / student123",
+  "login.or": "or",
+  "login.adminIssued":
+    "Accounts are issued by the Administrator via email. Need one? Contact your admin.",
 
   // chat
   "chat.greetMorning": "Good morning",
@@ -278,6 +271,10 @@ const en: Dict = {
   "docs.course": "Course:",
   "docs.noCourse": "No course yet",
   "docs.createCourse": "+ New course",
+  "docs.deleteCourse": "Delete course",
+  "docs.deleteCourseConfirm":
+    'Delete course "{name}"? All its documents, vectors and quizzes will be removed.',
+  "docs.deleteCourseFailed": "Failed to delete course",
   "docs.createCourseTitle": "Create new course",
   "docs.courseName": "Course name",
   "docs.descriptionOptional": "Description (optional)",
@@ -304,7 +301,12 @@ const en: Dict = {
   "admin.colUser": "User",
   "admin.colRole": "Role",
   "admin.colPlan": "Subscription",
+  "admin.colActions": "Actions",
   "admin.notApplicable": "N/A",
+  "admin.deleteUser": "Delete user",
+  "admin.deleteUserConfirm":
+    'Delete user "{name}"? Their chat sessions and quiz attempts will be removed.',
+  "admin.deleteUserFailed": "Failed to delete user",
 
   // pricing
   "pricing.noNeedTitle": "Your account doesn't need a plan",
