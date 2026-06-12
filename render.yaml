@@ -23,6 +23,10 @@ services:
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
+      - key: BREVO_API_KEY
+        sync: false # Render chặn SMTP -> gửi mail qua Brevo API (HTTPS)
+      - key: MAIL_FROM
+        sync: false # sender đã verify trên Brevo (vd Gmail của bạn)
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD

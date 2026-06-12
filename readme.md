@@ -583,7 +583,7 @@ npm run cap:open
 ### 2. Render (backend FastAPI)
 1. https://render.com → New → Blueprint → trỏ repo này (đọc [render.yaml](render.yaml)).
 2. Điền env: `DATABASE_URL` (Neon), `GOOGLE_API_KEY`, `GOOGLE_OAUTH_CLIENT_ID`,
-   `SMTP_USER`/`SMTP_PASSWORD` (Gmail App Password), `ADMIN_EMAIL`/`ADMIN_PASSWORD`,
+   `BREVO_API_KEY`/`MAIL_FROM` (gửi email — xem mục 5), `ADMIN_EMAIL`/`ADMIN_PASSWORD`,
    `CORS_ORIGINS` (gồm domain Vercel), `APP_LOGIN_URL` (URL Vercel).
 3. Lưu ý free tier: service ngủ sau ~15 phút không dùng — request đầu mất 30–60s đánh thức.
 
@@ -598,9 +598,19 @@ npm run cap:open
 2. Authorized JavaScript origins: `http://localhost:5173` và `https://<app>.vercel.app`.
 3. Copy Client ID → set `GOOGLE_OAUTH_CLIENT_ID` (Render) và `VITE_GOOGLE_CLIENT_ID` (Vercel) — cùng một giá trị.
 
-### 5. Gmail App Password (gửi email cấp tài khoản)
-1. Bật 2FA cho Gmail → https://myaccount.google.com/apppasswords → tạo App Password.
-2. Set `SMTP_USER=<gmail của bạn>`, `SMTP_PASSWORD=<app password>` trên Render.
+### 5. Gửi email cấp tài khoản — Brevo API (bắt buộc trên Render)
+> ⚠️ Render free **chặn kết nối SMTP ra ngoài** (OSError 101) nên Gmail SMTP không chạy
+> trên Render — chỉ dùng được khi chạy local. Production dùng Brevo (free 300 mail/ngày).
+1. Đăng ký free tại https://www.brevo.com (xác nhận email).
+2. Verify sender: **Senders & IP → Senders → Add a sender** → nhập Gmail của bạn →
+   bấm link xác nhận trong hộp thư.
+3. Lấy API key: bấm tên tài khoản (góc phải) → **SMTP & API → API Keys →
+   Generate a new API key** → copy chuỗi `xkeysib-...`.
+4. Trên Render thêm env: `BREVO_API_KEY=xkeysib-...` và `MAIL_FROM=<gmail đã verify>`.
+
+(Chạy local vẫn dùng được Gmail SMTP: `SMTP_USER` + `SMTP_PASSWORD` (App Password
+tạo tại https://myaccount.google.com/apppasswords). Có `BREVO_API_KEY` thì Brevo
+được ưu tiên.)
 
 > Vì sao không deploy backend lên Vercel? Vercel serverless không giữ file giữa các request — SQLite/ChromaDB sẽ mất dữ liệu. Render chạy process thường, còn dữ liệu (metadata + vector) đặt ở Neon Postgres nên không mất khi service ngủ/restart.
 

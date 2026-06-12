@@ -26,10 +26,12 @@ class Settings(BaseSettings):
     # Google OAuth (đăng nhập Google) — Client ID từ Google Cloud Console.
     google_oauth_client_id: str = ""
 
-    # Gmail SMTP (App Password) để gửi email cấp tài khoản.
+    # Gửi email cấp tài khoản. Ưu tiên Brevo API (HTTPS — Render free chặn
+    # cổng SMTP); fallback Gmail SMTP (App Password) khi chạy local.
+    brevo_api_key: str = ""
     smtp_user: str = ""
     smtp_password: str = ""
-    mail_from: str = ""  # mặc định dùng smtp_user
+    mail_from: str = ""  # sender đã verify trên Brevo; mặc định dùng smtp_user
     app_login_url: str = "http://localhost:5173"
 
     # Seed Admin đầu tiên khi startup (vì không còn đăng ký công khai).
