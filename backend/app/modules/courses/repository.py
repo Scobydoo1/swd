@@ -27,3 +27,8 @@ class CourseRepository:
             .order_by(Chapter.order)
             .all()
         )
+
+    def delete(self, course: Course) -> None:
+        # Chapters tự xóa theo cascade="all, delete-orphan" trên Course.chapters.
+        self.db.delete(course)
+        self.db.commit()

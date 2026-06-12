@@ -40,6 +40,9 @@ class QuizRepository:
         return q.order_by(Quiz.created_at.desc()).all()
 
     def delete(self, quiz: Quiz) -> None:
+        # Xóa các lượt làm bài trước (FK quiz_attempts.quiz_id không cascade) để
+        # tránh lỗi ràng buộc khoá ngoại khi quiz đã có người làm.
+        self.db.query(QuizAttempt).filter(QuizAttempt.quiz_id == quiz.id).delete()
         self.db.delete(quiz)
         self.db.commit()
 
