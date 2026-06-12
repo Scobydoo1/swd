@@ -1,6 +1,10 @@
 """Seed dữ liệu mẫu: 3 user (admin/lecturer/student) + 1 môn học demo.
 
 Chạy: python seed.py
+
+CHỈ DÙNG CHO LOCAL. Mật khẩu demo là kiến thức công khai (nằm trong source),
+nên script từ chối chạy khi DATABASE_URL không phải SQLite (dấu hiệu production
+Postgres/SQL Server) — ép bằng cờ --demo-users nếu thật sự muốn.
 """
 import sys
 
@@ -9,7 +13,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 import json
 
-from app.database import SessionLocal, init_db
+from app.database import IS_SQLITE, SessionLocal, init_db
 from app.modules.auth.security import hash_password
 from app.modules.courses.models import Chapter, Course
 from app.modules.quizzes.models import Question, Quiz
@@ -61,6 +65,14 @@ DEMO_QUIZ = {
 
 
 def run():
+    # Chốt an toàn: không seed tài khoản demo (mật khẩu công khai) lên production.
+    if not IS_SQLITE and "--demo-users" not in sys.argv:
+        print(
+            "DATABASE_URL không phải SQLite — có vẻ đây là CSDL production.\n"
+            "Từ chối seed tài khoản demo (mật khẩu nằm công khai trong source).\n"
+            "Nếu chắc chắn muốn seed, chạy: python seed.py --demo-users"
+        )
+        return
     init_db()
     db = SessionLocal()
     try:

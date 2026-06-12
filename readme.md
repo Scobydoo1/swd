@@ -576,7 +576,8 @@ CHROMA_DIR=./data/chroma
 # CSDL: mặc định SQLite (chạy ngay). Đổi sang SQL Server — xem mục bên dưới.
 DATABASE_URL=sqlite:///./data/app.db
 
-JWT_SECRET=change-me-in-production
+# Bắt buộc đổi: chuỗi ngẫu nhiên dài (vd: python -c "import secrets; print(secrets.token_urlsafe(48))")
+JWT_SECRET=<chuoi-ngau-nhien-dai-cua-ban>
 JWT_EXPIRE_MINUTES=720
 
 # CORS: thêm origin localhost cho app Capacitor (Android)
@@ -600,13 +601,13 @@ dialect (chỉ SQLite mới chạy migration `PRAGMA`, các kiểu chuỗi đã 
 CREATE DATABASE maple;
 ```
 
-**Bước 3 — Đặt `DATABASE_URL` trong `.env`** (ví dụ user `sa` / mật khẩu `123`, instance tên `THANH`):
+**Bước 3 — Đặt `DATABASE_URL` trong `.env`** (thay `<user>`, `<password>`, `<INSTANCE>` bằng thông tin SQL Server của bạn — nên tạo login riêng thay vì dùng `sa`):
 
 ```env
-DATABASE_URL=mssql+pyodbc://sa:123@localhost\THANH/maple?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes
+DATABASE_URL=mssql+pyodbc://<user>:<password>@localhost\<INSTANCE>/maple?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes
 ```
 
-- **Default instance** (không có tên): bỏ `\THANH` → `...@localhost/maple?driver=...`
+- **Default instance** (không có tên): bỏ `\<INSTANCE>` → `...@localhost/maple?driver=...`
 - **Cổng cụ thể**: `...@localhost,1433/maple?driver=...`
 - Mật khẩu có ký tự đặc biệt (`@ : / \`) phải URL-encode (vd `@` → `%40`).
 
@@ -649,21 +650,19 @@ npm run cap:sync
 npm run cap:open
 ```
 
-**Điện thoại thật cùng Wi-Fi:** thay `10.0.2.2` bằng IP LAN của máy chạy backend (ví dụ `192.168.100.6`), và backend phải chạy với `--host 0.0.0.0`.
+**Điện thoại thật cùng Wi-Fi:** thay `10.0.2.2` bằng IP LAN của máy chạy backend (xem bằng `ipconfig`, dạng `192.168.x.x`), và backend phải chạy với `--host 0.0.0.0`.
 
 **Live-reload khi dev** (không cần rebuild APK): mở comment dòng `server.url` trong [frontend/capacitor.config.ts](frontend/capacitor.config.ts) trỏ về Vite dev server.
 
-### Tài khoản demo
+### Tài khoản demo (chỉ local)
 
-| Vai trò | Email | Mật khẩu | Gói |
-|---------|-------|----------|-----|
-| Admin | admin@demo.com | admin123 | — (không cần) |
-| Lecturer | lecturer@demo.com | lecturer123 | — (không cần) |
-| Student | student@demo.com | student123 | FREE |
+Chạy `python seed.py` để tạo 3 tài khoản demo (Admin / Lecturer / Student) — **email và mật khẩu in ra console khi seed xong**. Bộ tài khoản này chỉ dành cho chạy thử trên máy local.
+
+> ⚠️ **Không chạy `seed.py` trên production.** Script sẽ từ chối seed tài khoản demo khi `DATABASE_URL` không phải SQLite (cần cờ `--demo-users` để ép). Trên production, Admin đầu tiên tạo từ env `ADMIN_EMAIL` / `ADMIN_PASSWORD` (đặt mật khẩu mạnh, đổi sau lần đăng nhập đầu).
 
 > Gói dịch vụ **chỉ áp dụng cho Sinh viên**. Giảng viên & Admin dùng đầy đủ tính năng, không bị rate-limit theo gói.
 
-> **Lưu ý:** Không còn đăng ký công khai. Tài khoản Sinh viên/Giảng viên có 2 đường cấp: (1) **Admin tạo trực tiếp** trong trang Quản lý người dùng, hoặc (2) người dùng tự bấm **"Yêu cầu tài khoản"** ở trang đăng nhập → Admin **duyệt** trong tab "Yêu cầu chờ duyệt". Cả hai đường đều tự sinh mật khẩu và gửi qua email; người dùng cũng có thể **đăng nhập bằng Google** với email đã được cấp. Admin đầu tiên seed từ env `ADMIN_EMAIL`/`ADMIN_PASSWORD` khi khởi động (hoặc chạy `python seed.py` để có dữ liệu demo).
+> **Lưu ý:** Không còn đăng ký công khai. Tài khoản Sinh viên/Giảng viên có 2 đường cấp: (1) **Admin tạo trực tiếp** trong trang Quản lý người dùng, hoặc (2) người dùng tự bấm **"Yêu cầu tài khoản"** ở trang đăng nhập → Admin **duyệt** trong tab "Yêu cầu chờ duyệt". Cả hai đường đều tự sinh mật khẩu và gửi qua email; người dùng cũng có thể **đăng nhập bằng Google** với email đã được cấp.
 
 ---
 

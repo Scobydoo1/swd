@@ -174,8 +174,8 @@ MAIL_FROM=
 APP_LOGIN_URL=http://localhost:5173
 
 # --- Admin đầu tiên (tự tạo khi startup nếu DB chưa có admin) ---
-ADMIN_EMAIL=admin@demo.com
-ADMIN_PASSWORD=admin123
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=<mat-khau-manh-cua-ban>
 ADMIN_FULL_NAME=Quản trị viên
 
 # --- Vector backend: chroma (local) | pgvector (Neon Postgres) ---
