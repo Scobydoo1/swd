@@ -45,6 +45,13 @@ def send_account_email(to: str, full_name: str, password: str) -> bool:
             smtp.login(settings.smtp_user, settings.smtp_password)
             smtp.send_message(msg)
         return True
-    except Exception:
-        logger.warning("Gửi email cấp tài khoản tới %s thất bại", to)
+    except Exception as e:
+        # Ghi loại lỗi + thông điệp để chẩn đoán (auth sai / cổng bị chặn /
+        # timeout...). KHÔNG log mật khẩu.
+        logger.warning(
+            "Gửi email cấp tài khoản tới %s thất bại: %s: %s",
+            to,
+            type(e).__name__,
+            e,
+        )
         return False
