@@ -19,8 +19,19 @@ pathlib.Path("./data/test_app.db").unlink(missing_ok=True)
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import event  # noqa: E402
 
+from app.database import engine  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+# SQLite mặc định KHÔNG kiểm tra khóa ngoại (khác Postgres trên production).
+# Bật lên để test bắt được lỗi thứ tự xóa vi phạm FK như trên Neon.
+@event.listens_for(engine, "connect")
+def _enable_sqlite_fk(dbapi_conn, _record):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 @pytest.fixture(scope="session")

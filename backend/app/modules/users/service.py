@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.modules.auth.security import hash_password
-from app.modules.chat.models import ChatSession
+from app.modules.chat.models import ChatSession, Message
 from app.modules.courses.models import Course
 from app.modules.documents.models import Document
 from app.modules.quizzes.models import Quiz, QuizAttempt
@@ -53,13 +53,24 @@ class UserService:
                 status_code=400, detail="Không thể tự xóa tài khoản của chính mình"
             )
 
-        # 1) Phiên chat của user (messages tự cascade qua ORM relationship).
-        for session in (
-            self.db.query(ChatSession)
-            .filter(ChatSession.user_id == user_id)
-            .all()
-        ):
-            self.db.delete(session)
+        # 1) Phiên chat của user. Xóa bulk theo thứ tự con -> cha (messages
+        # trước, sessions sau) và thực thi NGAY: User và ChatSession không có
+        # relationship ORM nên không được dựa vào thứ tự flush của SQLAlchemy
+        # — trên Postgres từng vỡ FK chat_sessions_user_id_fkey vì DELETE users
+        # chạy trước DELETE chat_sessions.
+        session_ids = [
+            sid
+            for (sid,) in self.db.query(ChatSession.id).filter(
+                ChatSession.user_id == user_id
+            )
+        ]
+        if session_ids:
+            self.db.query(Message).filter(
+                Message.session_id.in_(session_ids)
+            ).delete(synchronize_session=False)
+            self.db.query(ChatSession).filter(
+                ChatSession.id.in_(session_ids)
+            ).delete(synchronize_session=False)
 
         # 2) Lượt làm quiz của user.
         self.db.query(QuizAttempt).filter(
