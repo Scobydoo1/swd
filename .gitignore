@@ -16,6 +16,14 @@ node_modules/
 dist/
 frontend/.env
 
+# Secrets — KHÔNG commit
+# File client secret tải từ Google Cloud Console (OAuth)
+client_secret*.json
+*.client_secret.json
+# Service account / key files
+*-service-account.json
+serviceAccount*.json
+
 # Misc
 .DS_Store
 .idea/
