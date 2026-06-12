@@ -199,3 +199,21 @@ export const IconSpark = (p: IcProps) => (
     <path d="M19 16l.7 1.8L21.5 18.5l-1.8.7L19 21l-.7-1.8L16.5 18.5l1.8-.7L19 16Z" />
   </Ic>
 );
+export const IconRoom = (p: IcProps) => (
+  <Ic {...p}>
+    <path d="M3.5 20.5h17M5.5 20.5V5a1.5 1.5 0 0 1 1.5-1.5h10A1.5 1.5 0 0 1 18.5 5v15.5" />
+    <path d="M9 7.5h2.5M9 11h2.5M13.5 20.5v-4.5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v4.5" />
+  </Ic>
+);
+export const IconUserPlus = (p: IcProps) => (
+  <Ic {...p}>
+    <circle cx="10" cy="8" r="3.5" />
+    <path d="M4 19.5c.7-3 3.2-4.5 6-4.5s5.3 1.5 6 4.5M18.5 8.5v5M16 11h5" />
+  </Ic>
+);
+export const IconChart = (p: IcProps) => (
+  <Ic {...p}>
+    <path d="M4 4.5v15h16" />
+    <path d="M8.5 15.5v-4M12.5 15.5v-7M16.5 15.5v-2.5" />
+  </Ic>
+);

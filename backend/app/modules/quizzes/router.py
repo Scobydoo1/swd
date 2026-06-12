@@ -55,17 +55,17 @@ def submit_quiz(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    return QuizService(db).submit(quiz_id, payload.answers, user.id)
+    return QuizService(db).submit(quiz_id, payload.answers, user)
 
 
-# Giảng viên/Admin xem các lượt làm bài.
+# FR-QZ-04: Người tạo quiz (Lecturer) / Admin xem bảng điểm các lượt làm bài.
 @router.get("/{quiz_id}/attempts", response_model=list[AttemptOut])
 def quiz_attempts(
     quiz_id: int,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.LECTURER, Role.ADMIN)),
+    user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
 ):
-    return QuizService(db).list_attempts(quiz_id)
+    return QuizService(db).list_attempts(quiz_id, user)
 
 
 # Giảng viên (của mình) hoặc Admin xóa quiz.

@@ -17,7 +17,7 @@ from app.modules.chat.schemas import (
 )
 from app.modules.chat.service import ChatService
 from app.modules.users.models import Role
-from app.shared.dependencies import get_current_user
+from app.shared.dependencies import get_current_user, require_role
 from app.shared.rate_limit import chat_rate_limit
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -25,20 +25,23 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 # FR-USR-02 / FR-USR-03: Chat hỏi đáp RAG -> answer + citations.
 # §12: rate-limited để tránh lạm dụng (chat_rate_limit cũng xác thực user).
+# Chỉ Sinh viên cần hỏi đáp AI (Admin giữ toàn quyền); Giảng viên bị chặn.
 @router.post("/chat", response_model=ChatResponse)
 def chat(
     req: ChatRequest,
     db: Session = Depends(get_db),
     user=Depends(chat_rate_limit),
+    _=Depends(require_role(Role.USER, Role.ADMIN)),
 ):
     return ChatService(db).answer(req, user_id=user.id)
 
 
+# Chat chỉ dành cho Sinh viên (+Admin) nên tạo phiên cũng giới hạn tương ứng.
 @router.post("/sessions", response_model=SessionOut)
 def create_session(
     payload: SessionCreate,
     db: Session = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(Role.USER, Role.ADMIN)),
 ):
     return ChatRepository(db).create_session(
         user.id, payload.title or "Cuộc trò chuyện mới", payload.course_id

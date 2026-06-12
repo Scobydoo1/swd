@@ -23,9 +23,9 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 
 | Actor | Vai trò | Quyền |
 |-------|---------|-------|
-| **Admin** | Quản trị hệ thống | Toàn quyền: quản lý người dùng, quản lý môn học/chương, quản lý **mọi** tài liệu, xem toàn bộ phiên chat, cấu hình hệ thống |
-| **Lecturer** (Giảng viên) | Người phụ trách nội dung môn học | Upload / xem / xóa tài liệu của môn mình phụ trách, tạo & quản lý môn học/chương, xem thống kê hỏi đáp; **không** quản lý người dùng |
-| **User** (Sinh viên) | Người dùng cuối | Chat hỏi đáp, xem tài liệu đã index, xem & quản lý phiên chat **của chính mình**; **không** upload/xóa tài liệu, không quản trị |
+| **Admin** | Quản trị hệ thống | Toàn quyền: quản lý người dùng, quản lý môn học/chương, quản lý **mọi** tài liệu & phòng học, xem toàn bộ phiên chat, cấu hình hệ thống |
+| **Lecturer** (Giảng viên) | Người phụ trách nội dung môn học | Upload / xem / xóa tài liệu của môn mình phụ trách, tạo & quản lý môn học/chương, tạo quiz + xem bảng điểm SV, tạo **phòng học** & mời sinh viên; **không** quản lý người dùng, **không dùng AI chat** |
+| **User** (Sinh viên) | Người dùng cuối | Chat hỏi đáp (chỉ role này cần AI chat), xem tài liệu đã index, tham gia phòng học được mời, làm quiz & xem điểm, xem & quản lý phiên chat **của chính mình**; **không** upload/xóa tài liệu, không quản trị |
 
 **Phân quyền theo endpoint** thực thi qua dependency `require_role(...)` trong `shared/dependencies.py`. Mỗi `User` model có trường `role ∈ {ADMIN, LECTURER, USER}`.
 
@@ -37,7 +37,7 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 
 #### User / Sinh viên (FR-USR)
 - `FR-USR-01` — Đăng ký / đăng nhập bằng email + mật khẩu, nhận JWT
-- `FR-USR-02` — Chat hỏi đáp tự nhiên theo ngữ cảnh hội thoại (RAG)
+- `FR-USR-02` — Chat hỏi đáp tự nhiên theo ngữ cảnh hội thoại (RAG). **Chỉ Sinh viên** (Admin giữ quyền giám sát); Giảng viên không dùng AI chat → `403`
 - `FR-USR-03` — Xem trích dẫn nguồn tài liệu gốc kèm mỗi câu trả lời
 - `FR-USR-04` — Xem danh sách & lịch sử phiên chat của chính mình
 
@@ -54,10 +54,16 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 - `FR-ADM-05` — Đổi gói dịch vụ (plan) của người dùng: `PATCH /users/{id}/plan`
 
 #### Quiz (FR-QZ)
-- `FR-QZ-01` — Lecturer/Admin tạo quiz trắc nghiệm gắn với môn học (nhiều câu, mỗi câu ≥2 lựa chọn, 1 đáp án đúng)
+- `FR-QZ-01` — Lecturer/Admin tạo quiz trắc nghiệm gắn với **từng môn học** (nhiều câu, mỗi câu ≥2 lựa chọn, 1 đáp án đúng)
 - `FR-QZ-02` — Student làm quiz; endpoint trả đề **ẩn đáp án đúng** (chống lộ đáp án)
-- `FR-QZ-03` — Nộp bài → backend chấm điểm, trả `score / correct / total` + đáp án đúng từng câu
-- `FR-QZ-04` — Lecturer (của mình) / Admin xóa quiz; xem danh sách lượt làm (attempts)
+- `FR-QZ-03` — Nộp bài → backend chấm điểm, trả `score / correct / total` + đáp án đúng từng câu. Chỉ lượt làm của **Sinh viên** được lưu vào bảng điểm (Lecturer/Admin xem thử không ghi)
+- `FR-QZ-04` — Lecturer (người tạo quiz) / Admin xóa quiz; xem bảng điểm (attempts) **kèm tên + email sinh viên** — điểm của SV tự động gửi về giảng viên qua bảng này
+
+#### Phòng học / Rooms (FR-ROOM)
+- `FR-ROOM-01` — **Chỉ Admin/Lecturer** tạo phòng học, gắn với một môn học (`course_id`)
+- `FR-ROOM-02` — Danh sách phòng theo vai trò: Admin thấy mọi phòng; Lecturer thấy phòng mình tạo; Student chỉ thấy phòng được mời
+- `FR-ROOM-03` — Chi tiết phòng tổng hợp: thành viên + quiz + tài liệu (slide/doc) của môn — sinh viên trong phòng làm quiz và xem tài liệu học tập tại đây
+- `FR-ROOM-04` — Người tạo phòng / Admin mời sinh viên qua email (chỉ tài khoản role USER), gỡ thành viên, xóa phòng
 
 #### Subscription / Gói dịch vụ (FR-SUB)
 - `FR-SUB-01` — Xem 3 gói **Free / Pro / Max** (giá, tính năng), đánh dấu gói hiện tại: `GET /plans`
@@ -151,6 +157,13 @@ backend/
 │   │   │   ├── models.py        # Quiz, Question, QuizAttempt
 │   │   │   └── schemas.py
 │   │   │
+│   │   ├── rooms/               # MODULE: Phòng học (Lecturer/Admin tạo, mời SV)
+│   │   │   ├── router.py        # POST/GET /rooms, /{id}/members, /students
+│   │   │   ├── service.py       # Quyền theo vai trò; tổng hợp quiz + tài liệu của môn
+│   │   │   ├── repository.py
+│   │   │   ├── models.py        # Room, RoomMember
+│   │   │   └── schemas.py
+│   │   │
 │   │   └── subscriptions/       # MODULE: Gói dịch vụ Free/Pro/Max
 │   │       ├── router.py        # GET /plans, POST /subscriptions, /subscriptions/me
 │   │       ├── service.py
@@ -233,17 +246,24 @@ frontend/
 | GET | `/api/courses` | Danh sách môn học | All |
 | POST | `/api/courses` | Tạo môn học | Lecturer, Admin |
 | GET | `/api/courses/{id}/chapters` | Chương của môn | All |
-| POST | `/api/chat` | Gửi câu hỏi → answer + citations | All |
+| POST | `/api/chat` | Gửi câu hỏi → answer + citations | Student, Admin |
 | GET | `/api/sessions` | Danh sách phiên chat (của mình) | All |
 | GET | `/api/sessions/{id}` | Lịch sử messages của phiên | Owner, Admin |
-| POST | `/api/sessions` | Tạo phiên mới | All |
+| POST | `/api/sessions` | Tạo phiên mới | Student, Admin |
 | PATCH | `/api/users/{id}/plan` | Đổi gói dịch vụ người dùng | Admin |
 | GET | `/api/quizzes` | Danh sách quiz | All |
 | POST | `/api/quizzes` | Tạo quiz | Lecturer, Admin |
 | GET | `/api/quizzes/{id}` | Lấy đề (ẩn đáp án đúng) | All |
-| POST | `/api/quizzes/{id}/submit` | Nộp bài → chấm điểm + đáp án | All |
-| GET | `/api/quizzes/{id}/attempts` | Lượt làm bài | Lecturer (của mình), Admin |
+| POST | `/api/quizzes/{id}/submit` | Nộp bài → chấm điểm + đáp án (chỉ SV ghi attempt) | All |
+| GET | `/api/quizzes/{id}/attempts` | Bảng điểm kèm tên/email SV | Lecturer (người tạo), Admin |
 | DELETE | `/api/quizzes/{id}` | Xóa quiz | Lecturer (của mình), Admin |
+| POST | `/api/rooms` | Tạo phòng học (gắn môn) | Lecturer, Admin |
+| GET | `/api/rooms` | Danh sách phòng theo vai trò | All |
+| GET | `/api/rooms/students` | Danh sách SV để mời | Lecturer, Admin |
+| GET | `/api/rooms/{id}` | Chi tiết phòng (members + quiz + tài liệu) | Thành viên, người tạo, Admin |
+| POST | `/api/rooms/{id}/members` | Mời SV vào phòng (email) | Người tạo, Admin |
+| DELETE | `/api/rooms/{id}/members/{user_id}` | Gỡ SV khỏi phòng | Người tạo, Admin |
+| DELETE | `/api/rooms/{id}` | Xóa phòng | Người tạo, Admin |
 | GET | `/api/plans` | 3 gói Free/Pro/Max + gói hiện tại | All |
 | POST | `/api/subscriptions` | Nâng cấp gói cho chính mình | All |
 | GET | `/api/subscriptions/me` | Gói hiện tại của mình | All |
@@ -261,6 +281,8 @@ frontend/
 - **Quiz** (id, course_id → Course, created_by → User, title, created_at)
 - **Question** (id, quiz_id → Quiz, text, options_json, correct_index)
 - **QuizAttempt** (id, quiz_id → Quiz, user_id → User, score, answers_json, created_at)
+- **Room** (id, name, description, course_id → Course, created_by → User[Lecturer/Admin], created_at)
+- **RoomMember** (id, room_id → Room, user_id → User[Student], added_at) — unique (room_id, user_id)
 
 Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để gọn).
 Gói dịch vụ (Free/Pro/Max + giá + tính năng) định nghĩa tĩnh trong `subscriptions/plans.py`, không lưu DB.

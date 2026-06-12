@@ -26,6 +26,11 @@ graph LR
         UC9[Quản lý phiên chat của mình]
         UC10[Xem thống kê / lịch sử toàn hệ thống]
         UC11[Cấu hình hệ thống]
+        UC12[Tạo & quản lý Quiz theo môn]
+        UC13[Làm Quiz & xem điểm]
+        UC14[Xem bảng điểm sinh viên]
+        UC15[Tạo phòng học & mời sinh viên]
+        UC16[Tham gia phòng học - quiz + tài liệu]
     end
 
     User --> UC1
@@ -33,15 +38,17 @@ graph LR
     User --> UC7
     User --> UC8
     User --> UC9
+    User --> UC13
+    User --> UC16
 
     Lecturer --> UC1
     Lecturer --> UC3
     Lecturer --> UC4
     Lecturer --> UC5
     Lecturer --> UC6
-    Lecturer --> UC7
-    Lecturer --> UC8
-    Lecturer --> UC9
+    Lecturer --> UC12
+    Lecturer --> UC14
+    Lecturer --> UC15
 
     Admin --> UC1
     Admin --> UC2
@@ -53,7 +60,13 @@ graph LR
     Admin --> UC9
     Admin --> UC10
     Admin --> UC11
+    Admin --> UC12
+    Admin --> UC14
+    Admin --> UC15
 ```
+
+> **Lưu ý:** AI chat (UC7) chỉ dành cho **Sinh viên** (Admin giữ quyền giám sát);
+> Giảng viên không dùng AI chat — trọng tâm của họ là tài liệu, quiz và phòng học.
 
 **Quan hệ `<<include>>` / `<<extend>>`:**
 
@@ -66,7 +79,7 @@ graph LR
     UC7 -. extend .-> UC7b[Trả lời 'Không có trong tài liệu']
 ```
 
-> **Phân quyền tóm tắt:** User = chat + xem; Lecturer = User + quản lý tài liệu/môn học của mình; Admin = toàn quyền + quản lý người dùng + cấu hình.
+> **Phân quyền tóm tắt:** User = chat + làm quiz + phòng học được mời; Lecturer = quản lý tài liệu/môn học/quiz/phòng học của mình (không AI chat); Admin = toàn quyền + quản lý người dùng + cấu hình.
 
 ---
 
@@ -173,15 +186,33 @@ classDiagram
         +json answers
         +datetime created_at
     }
+    class Room {
+        +int id
+        +str name
+        +str description
+        +int course_id
+        +int created_by
+        +datetime created_at
+    }
+    class RoomMember {
+        +int id
+        +int room_id
+        +int user_id
+        +datetime added_at
+    }
 
     User "1" --> "0..*" Course : owns (Lecturer)
     User "1" --> "0..*" Document : uploads
     User "1" --> "0..*" ChatSession : has
     User "1" --> "0..*" Quiz : creates
     User "1" --> "0..*" QuizAttempt : attempts
+    User "1" --> "0..*" Room : creates (Lecturer/Admin)
+    User "1" --> "0..*" RoomMember : joins (Student)
     Course "1" --> "0..*" Chapter
     Course "1" --> "0..*" Document
     Course "1" --> "0..*" Quiz
+    Course "1" --> "0..*" Room
+    Room "1" --> "0..*" RoomMember
     Chapter "1" --> "0..*" Document
     ChatSession "1" --> "0..*" Message
     Message "1" --> "0..*" Citation : contains
@@ -441,9 +472,13 @@ erDiagram
     USER ||--o{ CHATSESSION : has
     USER ||--o{ QUIZ : creates
     USER ||--o{ QUIZATTEMPT : attempts
+    USER ||--o{ ROOM : "creates (Lecturer/Admin)"
+    USER ||--o{ ROOM_MEMBER : "joins (Student)"
     COURSE ||--o{ CHAPTER : contains
     COURSE ||--o{ DOCUMENT : groups
     COURSE ||--o{ QUIZ : has
+    COURSE ||--o{ ROOM : groups
+    ROOM ||--o{ ROOM_MEMBER : has
     CHAPTER ||--o{ DOCUMENT : "optional"
     CHATSESSION ||--o{ MESSAGE : contains
     QUIZ ||--o{ QUIZQUESTION : contains
@@ -518,6 +553,20 @@ erDiagram
         json answers_json
         datetime created_at
     }
+    ROOM {
+        int id PK
+        string name
+        string description
+        int course_id FK
+        int created_by FK
+        datetime created_at
+    }
+    ROOM_MEMBER {
+        int id PK
+        int room_id FK
+        int user_id FK
+        datetime added_at
+    }
 ```
 
 > Vector + chunk text **không** lưu trong SQLite mà nằm trong ChromaDB, kèm metadata `{document_id, course_id, chapter, chunk_index, source_text, page}`.
@@ -578,11 +627,13 @@ graph TD
         COURSES[courses]
         DOCUMENTS[documents]
         CHAT[chat]
+        QUIZZES[quizzes]
+        ROOMS[rooms]
         RAG[rag]
     end
     LLM[app.llm<br/>Gemini client]
 
-    MAIN --> AUTH & USERS & COURSES & DOCUMENTS & CHAT
+    MAIN --> AUTH & USERS & COURSES & DOCUMENTS & CHAT & QUIZZES & ROOMS
     MAIN --> CONFIG
     AUTH --> USERS
     AUTH --> SHARED
@@ -595,6 +646,12 @@ graph TD
     CHAT --> RAG
     CHAT --> LLM
     CHAT --> SHARED
+    QUIZZES --> DB
+    QUIZZES --> SHARED
+    ROOMS --> DB
+    ROOMS --> QUIZZES
+    ROOMS --> DOCUMENTS
+    ROOMS --> SHARED
     RAG --> LLM
     RAG --> CONFIG
     LLM --> CONFIG

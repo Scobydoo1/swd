@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useLang } from "../i18n/LanguageContext";
 import {
+  IconChart,
   IconCheck,
   IconClose,
   IconPlus,
@@ -11,12 +12,12 @@ import {
   IconSidebar,
   IconTrash,
 } from "../components/Icons";
-import type {
-  AttemptResult,
-  Course,
-  QuizDetail,
-  QuizListItem,
-} from "../types";
+import {
+  AttemptsModal,
+  Overlay,
+  TakeQuizModal,
+} from "../components/quiz/QuizModals";
+import type { Course, QuizDetail, QuizListItem } from "../types";
 
 type Ctx = { openSidebar: () => void };
 
@@ -41,6 +42,9 @@ export function QuizzesPage() {
   const [quizzes, setQuizzes] = useState<QuizListItem[]>([]);
   const [creating, setCreating] = useState(false);
   const [taking, setTaking] = useState<QuizDetail | null>(null);
+  const [viewingResults, setViewingResults] = useState<QuizListItem | null>(
+    null
+  );
 
   const load = () =>
     api.get<QuizListItem[]>("/quizzes").then((r) => setQuizzes(r.data));
@@ -122,12 +126,23 @@ export function QuizzesPage() {
                     </button>
                   )}
                 </div>
-                <button
-                  onClick={() => openTake(q.id)}
-                  className="mt-4 rounded-xl border border-line bg-surface-2 py-2 text-sm font-semibold text-accent transition hover:border-accent/60"
-                >
-                  {canManage ? t("quiz.viewTry") : t("quiz.take")}
-                </button>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => openTake(q.id)}
+                    className="flex-1 rounded-xl border border-line bg-surface-2 py-2 text-sm font-semibold text-accent transition hover:border-accent/60"
+                  >
+                    {canManage ? t("quiz.viewTry") : t("quiz.take")}
+                  </button>
+                  {canManage && (
+                    <button
+                      onClick={() => setViewingResults(q)}
+                      className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm font-semibold text-ink-soft transition hover:border-accent/60 hover:text-accent"
+                      title={t("quiz.results")}
+                    >
+                      <IconChart size={16} /> {t("quiz.results")}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -146,135 +161,14 @@ export function QuizzesPage() {
       {taking && (
         <TakeQuizModal quiz={taking} onClose={() => setTaking(null)} />
       )}
-    </div>
-  );
-}
-
-/* ---------------- Take quiz ---------------- */
-function TakeQuizModal({
-  quiz,
-  onClose,
-}: {
-  quiz: QuizDetail;
-  onClose: () => void;
-}) {
-  const { t } = useLang();
-  const [answers, setAnswers] = useState<(number | null)[]>(
-    quiz.questions.map(() => null)
-  );
-  const [result, setResult] = useState<AttemptResult | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    setBusy(true);
-    try {
-      const { data } = await api.post<AttemptResult>(
-        `/quizzes/${quiz.id}/submit`,
-        { answers: answers.map((a) => (a === null ? -1 : a)) }
-      );
-      setResult(data);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resultFor = (qi: number) =>
-    result?.results.find((r) => r.question_id === quiz.questions[qi].id);
-
-  return (
-    <Overlay onClose={onClose}>
-      <div className="flex items-center justify-between border-b border-line px-5 py-4">
-        <h2 className="font-display text-lg font-bold text-ink">{quiz.title}</h2>
-        <button
-          onClick={onClose}
-          className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2 hover:text-ink"
-        >
-          <IconClose size={18} />
-        </button>
-      </div>
-
-      {result && (
-        <div className="mx-5 mt-5 rounded-2xl bg-accent/10 p-4 text-center">
-          <div className="text-3xl font-bold text-accent">{result.score}%</div>
-          <div className="text-sm text-ink-soft">
-            {t("quiz.correctOf", { correct: result.correct, total: result.total })}
-          </div>
-        </div>
+      {viewingResults && (
+        <AttemptsModal
+          quizId={viewingResults.id}
+          quizTitle={viewingResults.title}
+          onClose={() => setViewingResults(null)}
+        />
       )}
-
-      <div className="max-h-[60vh] overflow-y-auto px-5 py-5">
-        {quiz.questions.map((q, qi) => {
-          const r = resultFor(qi);
-          return (
-            <div key={q.id} className="mb-5">
-              <p className="mb-2 font-medium text-ink">
-                {qi + 1}. {q.text}
-              </p>
-              <div className="flex flex-col gap-2">
-                {q.options.map((opt, oi) => {
-                  const picked = answers[qi] === oi;
-                  let tone =
-                    "border-line bg-surface hover:border-accent/50";
-                  if (result && r) {
-                    if (oi === r.correct_index)
-                      tone = "border-emerald-500/60 bg-emerald-500/10";
-                    else if (picked && !r.is_correct)
-                      tone = "border-danger/60 bg-danger/10";
-                  } else if (picked) {
-                    tone = "border-accent bg-accent/10";
-                  }
-                  return (
-                    <button
-                      key={oi}
-                      disabled={!!result}
-                      onClick={() =>
-                        setAnswers((a) =>
-                          a.map((v, i) => (i === qi ? oi : v))
-                        )
-                      }
-                      className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-sm transition ${tone}`}
-                    >
-                      <span
-                        className={`grid h-5 w-5 flex-none place-items-center rounded-full border text-[11px] ${
-                          picked ? "border-accent text-accent" : "border-ink-faint text-ink-faint"
-                        }`}
-                      >
-                        {String.fromCharCode(65 + oi)}
-                      </span>
-                      <span className="text-ink">{opt}</span>
-                      {result && r && oi === r.correct_index && (
-                        <span className="ml-auto text-emerald-600">
-                          <IconCheck size={16} />
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="border-t border-line px-5 py-4">
-        {result ? (
-          <button
-            onClick={onClose}
-            className="w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105"
-          >
-            {t("quiz.finish")}
-          </button>
-        ) : (
-          <button
-            onClick={submit}
-            disabled={busy || answers.some((a) => a === null)}
-            className="w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
-          >
-            {busy ? t("quiz.grading") : t("quiz.submit")}
-          </button>
-        )}
-      </div>
-    </Overlay>
+    </div>
   );
 }
 
@@ -458,27 +352,5 @@ function CreateQuizModal({
         </button>
       </div>
     </Overlay>
-  );
-}
-
-function Overlay({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-[22px] border border-line bg-bg shadow-maple"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
   );
 }

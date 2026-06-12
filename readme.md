@@ -12,11 +12,12 @@ Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and So
 
 | Tính năng | Mô tả |
 |-----------|-------|
-| **Chat & Hỏi đáp RAG** | Chat theo ngữ cảnh hội thoại, trích dẫn nguồn, giới hạn trong tài liệu đã index |
+| **Chat & Hỏi đáp RAG** | **Chỉ Sinh viên** chat theo ngữ cảnh hội thoại, trích dẫn nguồn, giới hạn trong tài liệu đã index (Admin giữ quyền giám sát; Giảng viên không dùng AI chat) |
 | **Quản lý tài liệu** | Upload PDF/DOCX/PPTX → tự động chunk & embed, xem trạng thái (PROCESSING / INDEXED / FAILED) |
-| **Quiz trắc nghiệm** | Lecturer tạo quiz; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng |
+| **Quiz trắc nghiệm** | Lecturer tạo quiz theo **từng môn học**; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng; **điểm tự gửi về Lecturer** (bảng kết quả kèm tên sinh viên) |
+| **Phòng học (Rooms)** | Chỉ Admin/Lecturer tạo phòng gắn với môn học, **mời sinh viên** vào; trong phòng có quiz + slide/tài liệu của môn để sinh viên học và làm bài |
 | **Gói dịch vụ** | 3 gói Free / Pro / Max cho **sinh viên** (rate-limit chat theo gói, nâng cấp tự phục vụ); giảng viên & admin được miễn |
-| **Phân quyền 3 actor** | Admin (toàn quyền), Lecturer (tài liệu + quiz + môn học), User/Student (chat + làm quiz) |
+| **Phân quyền 3 actor** | Admin (toàn quyền), Lecturer (tài liệu + quiz + môn học + phòng học), User/Student (chat + phòng học + làm quiz) |
 | **App Android** | APK cài đặt từ cùng codebase React, build qua Capacitor |
 
 ---
@@ -51,19 +52,22 @@ graph LR
     User([👤 Student])
 
     subgraph "Maple RAG Chatbot"
-        UC1[Đăng nhập / Đăng ký]
+        UC1[Đăng nhập]
         UC2[Quản lý người dùng & role & plan]
         UC3[Quản lý môn học / chương]
         UC4[Upload tài liệu PDF/DOCX/Slide]
         UC5[Xem danh sách tài liệu đã index]
         UC6[Xóa tài liệu]
-        UC7[Chat hỏi đáp theo ngữ cảnh]
+        UC7[Chat hỏi đáp theo ngữ cảnh — chỉ Sinh viên]
         UC8[Xem trích dẫn nguồn]
         UC9[Quản lý phiên chat]
         UC10[Xem thống kê / lịch sử toàn hệ thống]
-        UC11[Tạo & quản lý Quiz]
+        UC11[Tạo & quản lý Quiz theo môn]
         UC12[Làm Quiz & xem điểm]
         UC13[Xem & nâng cấp gói dịch vụ]
+        UC14[Xem bảng điểm quiz của sinh viên]
+        UC15[Tạo phòng học & mời sinh viên]
+        UC16[Tham gia phòng học - quiz + tài liệu]
     end
 
     User --> UC1
@@ -73,18 +77,16 @@ graph LR
     User --> UC9
     User --> UC12
     User --> UC13
+    User --> UC16
 
     Lecturer --> UC1
     Lecturer --> UC3
     Lecturer --> UC4
     Lecturer --> UC5
     Lecturer --> UC6
-    Lecturer --> UC7
-    Lecturer --> UC8
-    Lecturer --> UC9
     Lecturer --> UC11
-    Lecturer --> UC12
-    Lecturer --> UC13
+    Lecturer --> UC14
+    Lecturer --> UC15
 
     Admin --> UC1
     Admin --> UC2
@@ -96,9 +98,13 @@ graph LR
     Admin --> UC9
     Admin --> UC10
     Admin --> UC11
-    Admin --> UC12
     Admin --> UC13
+    Admin --> UC14
+    Admin --> UC15
 ```
+
+> Giảng viên **không** dùng AI chat (UC7) — hỏi đáp RAG là tính năng dành cho Sinh viên;
+> Admin giữ quyền giám sát toàn hệ thống.
 
 ## 2. Class Diagram (Domain Model)
 
@@ -184,6 +190,20 @@ classDiagram
         +json answers
         +datetime created_at
     }
+    class Room {
+        +int id
+        +str name
+        +str description
+        +int course_id
+        +int created_by
+        +datetime created_at
+    }
+    class RoomMember {
+        +int id
+        +int room_id
+        +int user_id
+        +datetime added_at
+    }
 
     User --> Role
     User --> Plan
@@ -192,9 +212,13 @@ classDiagram
     User "1" --> "0..*" ChatSession : has
     User "1" --> "0..*" Quiz : creates
     User "1" --> "0..*" QuizAttempt : attempts
+    User "1" --> "0..*" Room : creates (Lecturer/Admin)
+    User "1" --> "0..*" RoomMember : joins (Student)
     Course "1" --> "0..*" Chapter
     Course "1" --> "0..*" Document
     Course "1" --> "0..*" Quiz
+    Course "1" --> "0..*" Room
+    Room "1" --> "0..*" RoomMember
     ChatSession "1" --> "0..*" Message
     Quiz "1" --> "1..*" Question
     Quiz "1" --> "0..*" QuizAttempt
@@ -278,13 +302,60 @@ sequenceDiagram
 
     S->>FE: Chọn đáp án & Nộp bài
     FE->>R: POST /api/quizzes/{id}/submit {answers}
-    R->>SV: submit(id, answers, user_id)
+    R->>SV: submit(id, answers, user)
     SV->>DB: lấy questions (có correct_index)
     SV->>SV: chấm điểm từng câu
-    SV->>DB: lưu QuizAttempt
+    SV->>DB: lưu QuizAttempt (chỉ khi người nộp là Sinh viên)
     SV-->>R: {score, correct, total, results[]}
     R-->>FE: AttemptResult
     FE-->>S: Kết quả + đáp án đúng
+
+    actor L as Lecturer
+    L->>FE: Mở "Kết quả" của quiz
+    FE->>R: GET /api/quizzes/{id}/attempts
+    R->>SV: list_attempts(id, lecturer)
+    SV->>SV: chỉ người tạo quiz / Admin được xem
+    SV->>DB: attempts JOIN users (tên + email SV)
+    SV-->>R: [{user_name, user_email, score, ...}]
+    R-->>FE: Bảng điểm sinh viên
+    FE-->>L: Danh sách SV + điểm số
+```
+
+## 5b. Sequence Diagram — Phòng học (Rooms)
+
+```mermaid
+sequenceDiagram
+    actor L as Lecturer
+    actor S as Student
+    participant FE as React UI
+    participant R as RoomRouter
+    participant SV as RoomService
+    participant DB as SQLite
+
+    L->>FE: Tạo phòng (tên + môn học)
+    FE->>R: POST /api/rooms {name, course_id}
+    R->>SV: create(payload, lecturer)
+    SV->>DB: lưu Room (created_by=lecturer)
+    R-->>FE: RoomOut
+
+    L->>FE: Mời sinh viên (email)
+    FE->>R: POST /api/rooms/{id}/members {email}
+    R->>SV: invite(id, email, lecturer)
+    SV->>SV: chỉ người tạo/Admin; chỉ mời role USER; không trùng
+    SV->>DB: lưu RoomMember
+    R-->>FE: MemberOut
+
+    S->>FE: Mở "Phòng học"
+    FE->>R: GET /api/rooms
+    R->>SV: list_for(student)
+    SV->>DB: rooms JOIN room_members (chỉ phòng được mời)
+    R-->>FE: [RoomOut]
+    S->>FE: Vào phòng
+    FE->>R: GET /api/rooms/{id}
+    R->>SV: detail(id, student)
+    SV->>DB: members + quizzes + documents của môn
+    R-->>FE: RoomDetail
+    FE-->>S: Quiz để làm + tài liệu để học
 ```
 
 ## 6. Component / Architecture Diagram
@@ -294,6 +365,7 @@ graph TB
     subgraph Client["🖥️ Frontend — React (Vite + TS + Tailwind)"]
         CP[ChatPage]
         DP[DocumentsPage]
+        RP[RoomsPage + RoomDetailPage]
         QP[QuizzesPage]
         PP[PricingPage]
         AP[AdminPage]
@@ -313,6 +385,7 @@ graph TB
             COURSES[courses]
             CHAT[chat]
             QUIZ[quizzes]
+            ROOMS[rooms]
             SUB[subscriptions]
         end
 
@@ -330,14 +403,16 @@ graph TB
 
     Client -->|REST /api| API
     Android -->|REST http://10.0.2.2:8000/api| API
-    API --> AUTH & USERS & DOCS & COURSES & CHAT & QUIZ & SUB
+    API --> AUTH & USERS & DOCS & COURSES & CHAT & QUIZ & ROOMS & SUB
     DOCS --> RAG
     CHAT --> RAG
     CHAT --> LLMW
     CHAT --> RL
     RL --> USERS
     AUTH --> USERS
-    DOCS & USERS & COURSES & CHAT & QUIZ --> SQLITE
+    ROOMS --> QUIZ
+    ROOMS --> DOCS
+    DOCS & USERS & COURSES & CHAT & QUIZ & ROOMS --> SQLITE
     RAG --> CHROMA
 ```
 
@@ -350,9 +425,13 @@ erDiagram
     USER ||--o{ CHATSESSION : has
     USER ||--o{ QUIZ : creates
     USER ||--o{ QUIZATTEMPT : attempts
+    USER ||--o{ ROOM : "creates (Lecturer/Admin)"
+    USER ||--o{ ROOM_MEMBER : "joins (Student)"
     COURSE ||--o{ CHAPTER : contains
     COURSE ||--o{ DOCUMENT : groups
     COURSE ||--o{ QUIZ : groups
+    COURSE ||--o{ ROOM : groups
+    ROOM ||--o{ ROOM_MEMBER : has
     CHAPTER ||--o{ DOCUMENT : "optional"
     CHATSESSION ||--o{ MESSAGE : contains
     QUIZ ||--|{ QUESTION : has
@@ -388,6 +467,20 @@ erDiagram
         float score
         json answers
         datetime created_at
+    }
+    ROOM {
+        int id PK
+        string name
+        string description
+        int course_id FK
+        int created_by FK
+        datetime created_at
+    }
+    ROOM_MEMBER {
+        int id PK
+        int room_id FK
+        int user_id FK
+        datetime added_at
     }
     CHATSESSION {
         int id PK
@@ -638,13 +731,22 @@ tạo tại https://myaccount.google.com/apppasswords). Có `BREVO_API_KEY` thì
 
 ## Quy trình sử dụng
 
-**Hỏi đáp RAG:**
+**Hỏi đáp RAG (chỉ Sinh viên):**
 1. Đăng nhập Lecturer → vào **Tài liệu** → upload PDF/DOCX/PPTX. Đợi trạng thái *Đã index*.
 2. Đăng nhập Student → vào **Hỏi đáp** → chọn môn → đặt câu hỏi → nhận câu trả lời kèm trích dẫn.
 
-**Quiz:**
-1. Lecturer → **Quiz** → **Tạo quiz** → điền câu hỏi + đáp án → lưu.
-2. Student → **Quiz** → **Làm bài** → chọn đáp án → **Nộp bài** → xem điểm + đáp án đúng tức thì.
+> Giảng viên **không có** mục Hỏi đáp — AI chat là tính năng dành cho sinh viên
+> (backend trả 403 nếu Lecturer gọi `/api/chat`). Admin vẫn truy cập được để giám sát.
+
+**Phòng học (Rooms):**
+1. Lecturer (hoặc Admin) → **Phòng học** → **Tạo phòng** → đặt tên + chọn môn học.
+2. Mở phòng → **Mời sinh viên** (nhập email hoặc chọn nhanh từ danh sách).
+3. Student → **Phòng học** → thấy phòng mình được mời → vào phòng là có **quiz của môn để làm** và **slide/tài liệu để học**.
+
+**Quiz (gắn theo môn học):**
+1. Lecturer → **Quiz** → **Tạo quiz** → chọn môn + điền câu hỏi + đáp án → lưu.
+2. Student → **Quiz** (hoặc trong **Phòng học**) → **Làm bài** → chọn đáp án → **Nộp bài** → xem điểm + đáp án đúng tức thì.
+3. Lecturer → nút **Kết quả** trên quiz → xem bảng điểm từng sinh viên (tên, email, điểm, thời gian) — chỉ người tạo quiz hoặc Admin xem được; lượt "xem thử" của giảng viên không bị ghi vào bảng điểm.
 
 **Gói dịch vụ (chỉ Sinh viên):**
 - Student → **Gói dịch vụ** → xem Free / Pro / Max → nâng cấp cho chính mình.
@@ -687,9 +789,10 @@ swd/
 │   │       ├── users/           # Quản lý user, role, plan
 │   │       ├── courses/         # Môn học, chương
 │   │       ├── documents/       # Upload, ingest, parsers
-│   │       ├── chat/            # Chat RAG, sessions
+│   │       ├── chat/            # Chat RAG, sessions (chỉ Sinh viên + Admin)
 │   │       ├── rag/             # Embedder, VectorStore, Retriever, Facade
-│   │       ├── quizzes/         # Quiz, Question, QuizAttempt
+│   │       ├── quizzes/         # Quiz, Question, QuizAttempt (bảng điểm cho Lecturer)
+│   │       ├── rooms/           # Phòng học: Room, RoomMember (Lecturer mời SV)
 │   │       └── subscriptions/   # Gói Free/Pro/Max
 │   ├── seed.py                  # Seed 3 user + môn học + quiz mẫu
 │   ├── requirements.txt
@@ -700,9 +803,11 @@ swd/
 └── frontend/
     ├── src/
     │   ├── pages/
-    │   │   ├── ChatPage.tsx
+    │   │   ├── ChatPage.tsx     # Hỏi đáp RAG (Sinh viên; Lecturer bị ẩn)
     │   │   ├── DocumentsPage.tsx
-    │   │   ├── QuizzesPage.tsx  # Tạo quiz (Lecturer) + làm bài (Student)
+    │   │   ├── RoomsPage.tsx    # Danh sách phòng học + tạo phòng
+    │   │   ├── RoomDetailPage.tsx # Thành viên + quiz + tài liệu trong phòng
+    │   │   ├── QuizzesPage.tsx  # Tạo quiz (Lecturer) + làm bài (Student) + bảng điểm
     │   │   ├── PricingPage.tsx  # Gói dịch vụ
     │   │   └── AdminPage.tsx
     │   ├── api/client.ts        # Axios + VITE_API_BASE (web & APK)

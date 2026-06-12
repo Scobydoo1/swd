@@ -9,6 +9,7 @@ from app.modules.chat.models import ChatSession, Message
 from app.modules.courses.models import Course
 from app.modules.documents.models import Document
 from app.modules.quizzes.models import Quiz, QuizAttempt
+from app.modules.rooms.models import Room, RoomMember
 from app.modules.users.models import Role, User
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import UserCreate, UserCreateResult, UserOut
@@ -77,7 +78,14 @@ class UserService:
             QuizAttempt.user_id == user_id
         ).delete()
 
-        # 3) Gỡ liên kết người sở hữu trên nội dung dùng chung (giữ lại nội dung).
+        # 3) Phòng học: gỡ membership của user; phòng do user tạo được giữ lại
+        # và gỡ liên kết người tạo (giống course/quiz bên dưới).
+        self.db.query(RoomMember).filter(RoomMember.user_id == user_id).delete()
+        self.db.query(Room).filter(Room.created_by == user_id).update(
+            {Room.created_by: None}
+        )
+
+        # 4) Gỡ liên kết người sở hữu trên nội dung dùng chung (giữ lại nội dung).
         self.db.query(Course).filter(Course.owner_id == user_id).update(
             {Course.owner_id: None}
         )
@@ -88,7 +96,7 @@ class UserService:
             {Quiz.created_by: None}
         )
 
-        # 4) Xóa người dùng.
+        # 5) Xóa người dùng.
         self.db.delete(user)
         self.db.commit()
 

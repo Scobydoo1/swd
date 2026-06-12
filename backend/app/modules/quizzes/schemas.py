@@ -62,8 +62,11 @@ class AttemptResult(BaseModel):
     results: list[QuestionResult]
 
 
+# FR-QZ: Lecturer xem điểm của từng Sinh viên — kèm tên & email để nhận diện.
 class AttemptOut(BaseModel):
     id: int
     user_id: int | None
+    user_name: str | None
+    user_email: str | None
     score: float
     created_at: datetime

@@ -56,6 +56,46 @@ export interface AttemptResult {
   results: QuestionResult[];
 }
 
+export interface QuizAttemptRow {
+  id: number;
+  user_id: number | null;
+  user_name: string | null;
+  user_email: string | null;
+  score: number;
+  created_at: string;
+}
+
+export interface Room {
+  id: number;
+  name: string;
+  description: string;
+  course_id: number;
+  course_name: string;
+  created_by: number | null;
+  num_members: number;
+  num_quizzes: number;
+  created_at: string;
+}
+
+export interface RoomMember {
+  user_id: number;
+  full_name: string;
+  email: string;
+  added_at: string;
+}
+
+export interface RoomStudent {
+  id: number;
+  full_name: string;
+  email: string;
+}
+
+export interface RoomDetail extends Room {
+  members: RoomMember[];
+  quizzes: QuizListItem[];
+  documents: Document[];
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;

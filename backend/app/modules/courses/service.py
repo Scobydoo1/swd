@@ -6,6 +6,7 @@ from app.modules.courses.repository import CourseRepository
 from app.modules.documents.repository import DocumentRepository
 from app.modules.documents.service import DocumentService
 from app.modules.quizzes.repository import QuizRepository
+from app.modules.rooms.models import Room, RoomMember
 from app.modules.users.models import Role, User
 
 
@@ -37,11 +38,27 @@ class CourseService:
         for quiz in quiz_repo.list(course_id=course_id):
             quiz_repo.delete(quiz)
 
-        # 3) Phiên chat từng gắn môn này: gỡ liên kết (giữ lại lịch sử của user).
+        # 3) Phòng học gắn môn này: xóa kèm thành viên (room không còn ý nghĩa
+        # khi môn bị xóa).
+        room_ids = [
+            rid
+            for (rid,) in self.db.query(Room.id).filter(
+                Room.course_id == course_id
+            )
+        ]
+        if room_ids:
+            self.db.query(RoomMember).filter(
+                RoomMember.room_id.in_(room_ids)
+            ).delete(synchronize_session=False)
+            self.db.query(Room).filter(Room.id.in_(room_ids)).delete(
+                synchronize_session=False
+            )
+
+        # 4) Phiên chat từng gắn môn này: gỡ liên kết (giữ lại lịch sử của user).
         self.db.query(ChatSession).filter(
             ChatSession.course_id == course_id
         ).update({ChatSession.course_id: None})
         self.db.commit()
 
-        # 4) Xóa môn (chapters tự cascade qua ORM relationship).
+        # 5) Xóa môn (chapters tự cascade qua ORM relationship).
         self.repo.delete(course)

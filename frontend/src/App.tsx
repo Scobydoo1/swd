@@ -8,6 +8,8 @@ import { DocumentsPage } from "./pages/DocumentsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PricingPage } from "./pages/PricingPage";
 import { QuizzesPage } from "./pages/QuizzesPage";
+import { RoomDetailPage } from "./pages/RoomDetailPage";
+import { RoomsPage } from "./pages/RoomsPage";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -18,6 +20,13 @@ function Protected({ children }: { children: React.ReactNode }) {
       </div>
     );
   return user ? <>{children}</> : <Navigate to="/login" replace />;
+}
+
+// Lecturer không dùng AI chat — trang chủ của họ là Phòng học.
+function Home() {
+  const { user } = useAuth();
+  if (user?.role === "LECTURER") return <Navigate to="/rooms" replace />;
+  return <ChatPage />;
 }
 
 export default function App() {
@@ -34,8 +43,10 @@ export default function App() {
           </Protected>
         }
       >
-        <Route index element={<ChatPage />} />
+        <Route index element={<Home />} />
         <Route path="documents" element={<DocumentsPage />} />
+        <Route path="rooms" element={<RoomsPage />} />
+        <Route path="rooms/:id" element={<RoomDetailPage />} />
         <Route path="quizzes" element={<QuizzesPage />} />
         <Route path="pricing" element={<PricingPage />} />
         <Route path="admin" element={<AdminPage />} />

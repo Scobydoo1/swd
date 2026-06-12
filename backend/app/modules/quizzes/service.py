@@ -43,7 +43,7 @@ class QuizService:
         )
 
     def submit(
-        self, quiz_id: int, answers: list[int], user_id: int | None
+        self, quiz_id: int, answers: list[int], user: User
     ) -> AttemptResult:
         quiz = self._require(quiz_id)
         results: list[QuestionResult] = []
@@ -63,7 +63,10 @@ class QuizService:
             )
         total = len(quiz.questions)
         score = round(correct / total * 100, 1) if total else 0.0
-        self.repo.add_attempt(quiz_id, user_id, score, answers)
+        # FR-QZ-03: Chỉ lưu điểm của Sinh viên — Lecturer/Admin xem thử đề
+        # không ghi attempt để bảng kết quả của lớp không bị nhiễu.
+        if user.role == Role.USER:
+            self.repo.add_attempt(quiz_id, user.id, score, answers)
         return AttemptResult(
             score=score, correct=correct, total=total, results=results
         )
@@ -76,16 +79,24 @@ class QuizService:
             )
         self.repo.delete(quiz)
 
-    def list_attempts(self, quiz_id: int) -> list[AttemptOut]:
-        self._require(quiz_id)
+    # FR-QZ-04: Bảng điểm chỉ dành cho người tạo quiz (Lecturer) hoặc Admin.
+    def list_attempts(self, quiz_id: int, user: User) -> list[AttemptOut]:
+        quiz = self._require(quiz_id)
+        if user.role != Role.ADMIN and quiz.created_by != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Chỉ người tạo quiz hoặc Admin được xem kết quả",
+            )
         return [
             AttemptOut(
                 id=a.id,
                 user_id=a.user_id,
+                user_name=u.full_name if u else None,
+                user_email=u.email if u else None,
                 score=a.score,
                 created_at=a.created_at,
             )
-            for a in self.repo.list_attempts(quiz_id)
+            for a, u in self.repo.list_attempts(quiz_id)
         ]
 
     def _require(self, quiz_id: int):

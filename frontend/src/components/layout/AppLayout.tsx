@@ -14,6 +14,7 @@ import {
   IconPin,
   IconPlus,
   IconQuiz,
+  IconRoom,
   IconSearch,
   IconSidebar,
   IconSpark,
@@ -81,6 +82,8 @@ export function AppLayout() {
   const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
   // Chỉ Sinh viên có gói dịch vụ; Giảng viên & Admin được miễn.
   const isStudent = user?.role === "USER";
+  // Giảng viên không dùng AI chat — ẩn mục Hỏi đáp + lịch sử trò chuyện.
+  const hasChat = user?.role !== "LECTURER";
   const onChat = location.pathname === "/";
 
   // Trên mobile, đóng drawer sau khi điều hướng / chọn cuộc trò chuyện.
@@ -191,26 +194,31 @@ export function AppLayout() {
           </button>
         </div>
 
-        <button
-          className="mx-[14px] mb-3 mt-1 flex items-center gap-2.5 rounded-[13px] border border-line bg-surface px-3.5 py-3 text-[15px] font-semibold text-ink shadow-maple-sm transition hover:-translate-y-px hover:bg-surface-2"
-          onClick={() => {
-            newChat();
-            if (!onChat) navigate("/");
-            closeOnMobile();
-          }}
-        >
-          <span className="text-accent">
-            <IconPlus size={18} />
-          </span>
-          {t("nav.newChat")}
-        </button>
+        {hasChat && (
+          <button
+            className="mx-[14px] mb-3 mt-1 flex items-center gap-2.5 rounded-[13px] border border-line bg-surface px-3.5 py-3 text-[15px] font-semibold text-ink shadow-maple-sm transition hover:-translate-y-px hover:bg-surface-2"
+            onClick={() => {
+              newChat();
+              if (!onChat) navigate("/");
+              closeOnMobile();
+            }}
+          >
+            <span className="text-accent">
+              <IconPlus size={18} />
+            </span>
+            {t("nav.newChat")}
+          </button>
+        )}
 
         {/* App navigation */}
         <nav className="mx-[14px] mb-2 flex flex-col gap-1">
-          <NavItem to="/" label={t("nav.chat")} icon={<IconChat size={19} />} onClick={closeOnMobile} />
+          {hasChat && (
+            <NavItem to="/" label={t("nav.chat")} icon={<IconChat size={19} />} onClick={closeOnMobile} />
+          )}
           {canManage && (
             <NavItem to="/documents" label={t("nav.documents")} icon={<IconBook size={19} />} onClick={closeOnMobile} />
           )}
+          <NavItem to="/rooms" label={t("nav.rooms")} icon={<IconRoom size={19} />} onClick={closeOnMobile} />
           <NavItem to="/quizzes" label={t("nav.quiz")} icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
           {isStudent && (
             <NavItem to="/pricing" label={t("nav.pricing")} icon={<IconSpark size={19} />} onClick={closeOnMobile} />
@@ -220,40 +228,46 @@ export function AppLayout() {
           )}
         </nav>
 
-        {/* Conversation history (only meaningful on chat) */}
-        <div className="mx-[14px] mb-2 flex h-[42px] items-center gap-2 rounded-xl border border-line-soft bg-surface px-3 text-ink-faint">
-          <IconSearch size={17} />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t("nav.searchChat")}
-            className="flex-1 border-none bg-transparent text-[14.5px] text-ink outline-none placeholder:text-ink-faint"
-          />
-        </div>
+        {/* Conversation history (chỉ với role có chat) */}
+        {hasChat ? (
+          <>
+            <div className="mx-[14px] mb-2 flex h-[42px] items-center gap-2 rounded-xl border border-line-soft bg-surface px-3 text-ink-faint">
+              <IconSearch size={17} />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t("nav.searchChat")}
+                className="flex-1 border-none bg-transparent text-[14.5px] text-ink outline-none placeholder:text-ink-faint"
+              />
+            </div>
 
-        <div className="flex-1 overflow-y-auto px-2 pb-2">
-          {pinned.length > 0 && (
-            <div className="mb-2">
-              <div className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                <IconPin size={13} /> {t("nav.pinned")}
-              </div>
-              {pinned.map(renderRow)}
+            <div className="flex-1 overflow-y-auto px-2 pb-2">
+              {pinned.length > 0 && (
+                <div className="mb-2">
+                  <div className="flex items-center gap-1.5 px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    <IconPin size={13} /> {t("nav.pinned")}
+                  </div>
+                  {pinned.map(renderRow)}
+                </div>
+              )}
+              {Object.keys(groups).map((g) => (
+                <div key={g} className="mb-2">
+                  <div className="px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
+                    {t(`nav.${g}`)}
+                  </div>
+                  {groups[g].map(renderRow)}
+                </div>
+              ))}
+              {filtered.length === 0 && (
+                <div className="px-3 py-[18px] text-sm text-ink-faint">
+                  {sessions.length === 0 ? t("nav.noChats") : t("nav.notFound")}
+                </div>
+              )}
             </div>
-          )}
-          {Object.keys(groups).map((g) => (
-            <div key={g} className="mb-2">
-              <div className="px-2.5 pb-1.5 pt-2.5 text-xs font-semibold uppercase tracking-wider text-ink-faint">
-                {t(`nav.${g}`)}
-              </div>
-              {groups[g].map(renderRow)}
-            </div>
-          ))}
-          {filtered.length === 0 && (
-            <div className="px-3 py-[18px] text-sm text-ink-faint">
-              {sessions.length === 0 ? t("nav.noChats") : t("nav.notFound")}
-            </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="flex-1" />
+        )}
 
         <div className="border-t border-line p-3">
           {/* Language switcher — VI / EN (web + mobile) */}

@@ -13,6 +13,7 @@ from app.database import SessionLocal, init_db
 from app.modules.auth.security import hash_password
 from app.modules.courses.models import Chapter, Course
 from app.modules.quizzes.models import Question, Quiz
+from app.modules.rooms.models import Room, RoomMember
 from app.modules.users.models import Plan, Role, User
 
 # Chỉ Sinh viên có gói dịch vụ; Giảng viên & Admin được miễn (plan FREE bị bỏ qua).
@@ -122,6 +123,22 @@ def run():
                 f"Đã tạo quiz demo (id={quiz.id}) "
                 f"+ {len(DEMO_QUIZ['questions'])} câu hỏi."
             )
+
+        # Phòng học demo: Lecturer tạo, mời sẵn Student vào.
+        student = db.query(User).filter(User.email == "student@demo.com").first()
+        if course and not db.query(Room).first():
+            room = Room(
+                name="Lớp SE101 — Software Modeling",
+                description="Phòng học demo: quiz + tài liệu môn Software Modeling and Design",
+                course_id=course.id,
+                created_by=lecturer.id if lecturer else None,
+            )
+            db.add(room)
+            db.flush()
+            if student:
+                db.add(RoomMember(room_id=room.id, user_id=student.id))
+            db.commit()
+            print(f"Đã tạo phòng học demo (id={room.id}) + mời sinh viên demo.")
 
         print("Seed xong. Tài khoản demo:")
         for email, pwd, _, role, plan in DEMO_USERS:

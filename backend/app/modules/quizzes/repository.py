@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt
 from app.modules.quizzes.schemas import QuizCreate
+from app.modules.users.models import User
 
 
 class QuizRepository:
@@ -60,9 +61,11 @@ class QuizRepository:
         self.db.refresh(attempt)
         return attempt
 
-    def list_attempts(self, quiz_id: int) -> list[QuizAttempt]:
+    def list_attempts(self, quiz_id: int) -> list[tuple[QuizAttempt, User | None]]:
+        # Outer join User để vẫn hiển thị lượt làm của tài khoản đã bị xóa.
         return (
-            self.db.query(QuizAttempt)
+            self.db.query(QuizAttempt, User)
+            .outerjoin(User, User.id == QuizAttempt.user_id)
             .filter(QuizAttempt.quiz_id == quiz_id)
             .order_by(QuizAttempt.created_at.desc())
             .all()
