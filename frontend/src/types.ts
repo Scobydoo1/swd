@@ -96,6 +96,25 @@ export interface RoomDetail extends Room {
   documents: Document[];
 }
 
+export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface AccountRequest {
+  id: number;
+  email: string;
+  full_name: string;
+  requested_role: Role;
+  message: string;
+  status: RequestStatus;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface ApproveResult {
+  request: AccountRequest;
+  email_sent: boolean;
+  temp_password: string | null;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;

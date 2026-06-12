@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 import { useLang } from "../i18n/LanguageContext";
 import { GoogleSignInButton } from "../components/GoogleSignInButton";
-import { IconMaple, IconMoon, IconSun } from "../components/Icons";
+import { IconClose, IconMaple, IconMoon, IconSun } from "../components/Icons";
+import type { Role } from "../types";
 
 export function LoginPage() {
   const { user, login, loginWithGoogle } = useAuth();
@@ -15,6 +17,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
 
@@ -129,9 +132,140 @@ export function LoginPage() {
           </div>
 
           <p className="mt-6 text-center text-sm text-ink-faint">
-            {t("login.adminIssued")}
+            {t("login.adminIssued")}{" "}
+            <button
+              type="button"
+              onClick={() => setRequesting(true)}
+              className="font-semibold text-accent underline-offset-2 hover:underline"
+            >
+              {t("login.requestAccount")}
+            </button>
           </p>
         </div>
+      </div>
+
+      {requesting && (
+        <RequestAccountModal onClose={() => setRequesting(false)} />
+      )}
+    </div>
+  );
+}
+
+/* FR-REQ-01: Form công khai gửi yêu cầu tài khoản cho Admin duyệt. */
+function RequestAccountModal({ onClose }: { onClose: () => void }) {
+  const { t } = useLang();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<Role>("USER");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await api.post("/account-requests", {
+        email: email.trim(),
+        full_name: fullName.trim(),
+        role,
+        message: message.trim(),
+      });
+      setSentTo(email.trim());
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : t("req.failed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-[22px] border border-line bg-bg shadow-maple"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="font-display text-lg font-bold text-ink">
+            {t("req.title")}
+          </h2>
+          <button
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2 hover:text-ink"
+          >
+            <IconClose size={18} />
+          </button>
+        </div>
+
+        {sentTo ? (
+          <div className="px-5 py-6">
+            <p className="rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
+              {t("req.sent", { email: sentTo })}
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-4 w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105"
+            >
+              OK
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={send} className="space-y-3 px-5 py-5">
+            <p className="text-sm text-ink-faint">{t("req.subtitle")}</p>
+            <input
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder={t("req.fullName")}
+              className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent placeholder:text-ink-faint"
+            />
+            <input
+              required
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t("req.email")}
+              className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent placeholder:text-ink-faint"
+            />
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-ink-soft">
+                {t("req.role")}
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as Role)}
+                className="flex-1 rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+              >
+                <option value="USER">{t("role.USER")}</option>
+                <option value="LECTURER">{t("role.LECTURER")}</option>
+              </select>
+            </div>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={t("req.message")}
+              rows={3}
+              className="w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent placeholder:text-ink-faint"
+            />
+            {error && (
+              <p className="rounded-xl bg-danger/10 px-4 py-2.5 text-sm text-danger">
+                {error}
+              </p>
+            )}
+            <button
+              disabled={busy || !fullName.trim() || !email.trim()}
+              className="w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
+            >
+              {busy ? t("req.sending") : t("req.send")}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

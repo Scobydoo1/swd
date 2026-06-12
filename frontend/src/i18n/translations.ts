@@ -57,7 +57,22 @@ const vi: Dict = {
   "login.processing": "Đang xử lý…",
   "login.or": "hoặc",
   "login.adminIssued":
-    "Tài khoản do Quản trị viên cấp qua email. Chưa có? Liên hệ Admin.",
+    "Tài khoản do Quản trị viên cấp qua email. Chưa có tài khoản?",
+  "login.requestAccount": "Yêu cầu tài khoản",
+
+  // account request form
+  "req.title": "Yêu cầu tài khoản",
+  "req.subtitle":
+    "Điền thông tin bên dưới — Quản trị viên duyệt xong, mật khẩu sẽ được gửi tới email của bạn.",
+  "req.fullName": "Họ và tên",
+  "req.email": "Email",
+  "req.role": "Bạn là",
+  "req.message": "Lời nhắn cho Admin (tùy chọn — vd: lớp, MSSV)",
+  "req.send": "Gửi yêu cầu",
+  "req.sending": "Đang gửi…",
+  "req.sent":
+    "Đã gửi yêu cầu! Khi được duyệt, mật khẩu đăng nhập sẽ gửi tới {email}.",
+  "req.failed": "Gửi yêu cầu thất bại",
 
   // chat
   "chat.greetMorning": "Chào buổi sáng",
@@ -149,6 +164,18 @@ const vi: Dict = {
   "admin.created": "Đã tạo tài khoản và gửi email tới {email}.",
   "admin.createdNoEmail":
     "Đã tạo tài khoản nhưng gửi email thất bại. Mật khẩu tạm: {password} — hãy gửi cho người dùng.",
+  "admin.tabUsers": "Người dùng",
+  "admin.tabRequests": "Yêu cầu chờ duyệt",
+  "admin.reqEmpty": "Không có yêu cầu nào đang chờ duyệt.",
+  "admin.reqMessage": "Lời nhắn:",
+  "admin.approve": "Duyệt",
+  "admin.reject": "Từ chối",
+  "admin.approving": "Đang duyệt…",
+  "admin.approved": "Đã duyệt — tài khoản tạo xong, email gửi tới {email}.",
+  "admin.approvedNoEmail":
+    "Đã duyệt nhưng gửi email thất bại. Mật khẩu tạm: {password} — hãy gửi cho người dùng.",
+  "admin.rejected": "Đã từ chối yêu cầu của {email}.",
+  "admin.rejectConfirm": 'Từ chối yêu cầu của "{name}" ({email})?',
 
   // pricing
   "pricing.noNeedTitle": "Tài khoản của bạn không cần gói dịch vụ",
@@ -273,7 +300,22 @@ const en: Dict = {
   "login.processing": "Processing…",
   "login.or": "or",
   "login.adminIssued":
-    "Accounts are issued by the Administrator via email. Need one? Contact your admin.",
+    "Accounts are issued by the Administrator via email. Don't have one?",
+  "login.requestAccount": "Request an account",
+
+  // account request form
+  "req.title": "Request an account",
+  "req.subtitle":
+    "Fill in the form — once the Administrator approves, your password will be emailed to you.",
+  "req.fullName": "Full name",
+  "req.email": "Email",
+  "req.role": "You are a",
+  "req.message": "Message to Admin (optional — e.g. class, student ID)",
+  "req.send": "Send request",
+  "req.sending": "Sending…",
+  "req.sent":
+    "Request sent! Once approved, your password will be emailed to {email}.",
+  "req.failed": "Failed to send request",
 
   // chat
   "chat.greetMorning": "Good morning",
@@ -365,6 +407,18 @@ const en: Dict = {
   "admin.created": "Account created — credentials emailed to {email}.",
   "admin.createdNoEmail":
     "Account created but the email failed to send. Temp password: {password} — share it with the user.",
+  "admin.tabUsers": "Users",
+  "admin.tabRequests": "Pending requests",
+  "admin.reqEmpty": "No pending requests.",
+  "admin.reqMessage": "Message:",
+  "admin.approve": "Approve",
+  "admin.reject": "Reject",
+  "admin.approving": "Approving…",
+  "admin.approved": "Approved — account created, email sent to {email}.",
+  "admin.approvedNoEmail":
+    "Approved but the email failed to send. Temp password: {password} — share it with the user.",
+  "admin.rejected": "Rejected the request from {email}.",
+  "admin.rejectConfirm": 'Reject the request from "{name}" ({email})?',
 
   // pricing
   "pricing.noNeedTitle": "Your account doesn't need a plan",

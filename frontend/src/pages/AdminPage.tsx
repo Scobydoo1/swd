@@ -3,8 +3,14 @@ import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useLang } from "../i18n/LanguageContext";
-import { IconSidebar, IconTrash } from "../components/Icons";
-import type { Plan, Role, User } from "../types";
+import { IconCheck, IconClose, IconSidebar, IconTrash } from "../components/Icons";
+import type {
+  AccountRequest,
+  ApproveResult,
+  Plan,
+  Role,
+  User,
+} from "../types";
 
 const roleBadge: Record<Role, string> = {
   ADMIN: "bg-danger/15 text-danger",
@@ -17,18 +23,72 @@ export function AdminPage() {
   const { user: me } = useAuth();
   const { openSidebar } = useOutletContext<{ openSidebar: () => void }>();
   const [users, setUsers] = useState<User[]>([]);
+  const [requests, setRequests] = useState<AccountRequest[]>([]);
+  const [tab, setTab] = useState<"users" | "requests">("users");
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState<Role>("USER");
   const [creating, setCreating] = useState(false);
+  const [deciding, setDeciding] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
     null
   );
 
-  const load = () => api.get<User[]>("/users").then((r) => setUsers(r.data));
+  const load = () => {
+    api.get<User[]>("/users").then((r) => setUsers(r.data));
+    api
+      .get<AccountRequest[]>("/account-requests", {
+        params: { status: "PENDING" },
+      })
+      .then((r) => setRequests(r.data));
+  };
   useEffect(() => {
     load();
   }, []);
+
+  // FR-REQ-03: Duyệt yêu cầu — backend tạo tài khoản + gửi email mật khẩu.
+  const approveRequest = async (req: AccountRequest) => {
+    setNotice(null);
+    setDeciding(req.id);
+    try {
+      const { data } = await api.post<ApproveResult>(
+        `/account-requests/${req.id}/approve`
+      );
+      setNotice({
+        ok: true,
+        text: data.email_sent
+          ? t("admin.approved", { email: req.email })
+          : t("admin.approvedNoEmail", { password: data.temp_password ?? "" }),
+      });
+      load();
+    } catch (err: any) {
+      setNotice({
+        ok: false,
+        text: err.response?.data?.detail ?? t("common.error"),
+      });
+    } finally {
+      setDeciding(null);
+    }
+  };
+
+  const rejectRequest = async (req: AccountRequest) => {
+    if (!confirm(t("admin.rejectConfirm", { name: req.full_name, email: req.email })))
+      return;
+    setNotice(null);
+    setDeciding(req.id);
+    try {
+      await api.post(`/account-requests/${req.id}/reject`);
+      setNotice({ ok: true, text: t("admin.rejected", { email: req.email }) });
+      load();
+    } catch (err: any) {
+      setNotice({
+        ok: false,
+        text: err.response?.data?.detail ?? t("common.error"),
+      });
+    } finally {
+      setDeciding(null);
+    }
+  };
 
   // FR-ADM-01: Admin cấp tài khoản — mật khẩu tự sinh gửi qua email.
   const createUser = async (e: React.FormEvent) => {
@@ -100,6 +160,97 @@ export function AdminPage() {
           <p className="mt-1 text-sm text-ink-faint">{t("admin.subtitle")}</p>
         </header>
 
+        {/* Tabs: Người dùng | Yêu cầu chờ duyệt */}
+        <div className="mb-5 flex items-center gap-1 rounded-[14px] border border-line bg-surface p-1">
+          {(
+            [
+              ["users", t("admin.tabUsers")],
+              ["requests", `${t("admin.tabRequests")} (${requests.length})`],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex-1 rounded-[10px] py-2 text-sm font-semibold transition ${
+                tab === key
+                  ? "bg-accent text-white shadow-maple-sm"
+                  : "text-ink-soft hover:bg-surface-2 hover:text-ink"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {notice && (
+          <p
+            className={`mb-4 rounded-xl px-4 py-2.5 text-sm ${
+              notice.ok
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "bg-danger/10 text-danger"
+            }`}
+          >
+            {notice.text}
+          </p>
+        )}
+
+        {tab === "requests" ? (
+          <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
+            {requests.length === 0 ? (
+              <p className="p-8 text-center text-sm text-ink-faint">
+                {t("admin.reqEmpty")}
+              </p>
+            ) : (
+              requests.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex flex-col gap-3 border-b border-line-soft px-4 py-4 last:border-0 sm:flex-row sm:items-center sm:px-5"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="avatar avatar-user sm">
+                      {r.full_name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">
+                        {r.full_name}
+                        <span
+                          className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${roleBadge[r.requested_role]}`}
+                        >
+                          {t(`role.${r.requested_role}`)}
+                        </span>
+                      </p>
+                      <p className="truncate text-xs text-ink-faint">{r.email}</p>
+                      {r.message && (
+                        <p className="mt-1 text-xs text-ink-soft">
+                          <span className="font-semibold">{t("admin.reqMessage")}</span>{" "}
+                          {r.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-none gap-2">
+                    <button
+                      onClick={() => approveRequest(r)}
+                      disabled={deciding === r.id}
+                      className="flex items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
+                    >
+                      <IconCheck size={15} />
+                      {deciding === r.id ? t("admin.approving") : t("admin.approve")}
+                    </button>
+                    <button
+                      onClick={() => rejectRequest(r)}
+                      disabled={deciding === r.id}
+                      className="flex items-center gap-1.5 rounded-xl border border-line px-3.5 py-2 text-sm font-semibold text-ink-soft transition hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+                    >
+                      <IconClose size={15} /> {t("admin.reject")}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <>
         <form
           onSubmit={createUser}
           className="mb-6 rounded-[20px] border border-line bg-surface p-5"
@@ -142,17 +293,6 @@ export function AdminPage() {
               {creating ? t("admin.creating") : t("admin.create")}
             </button>
           </div>
-          {notice && (
-            <p
-              className={`mt-3 rounded-xl px-4 py-2.5 text-sm ${
-                notice.ok
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "bg-danger/10 text-danger"
-              }`}
-            >
-              {notice.text}
-            </p>
-          )}
         </form>
 
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
@@ -225,6 +365,8 @@ export function AdminPage() {
             </div>
           ))}
         </div>
+          </>
+        )}
       </div>
     </div>
   );

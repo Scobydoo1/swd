@@ -44,6 +44,7 @@ def init_db() -> None:
     from app.modules.chat import models as chat_models  # noqa: F401
     from app.modules.quizzes import models as quiz_models  # noqa: F401
     from app.modules.rooms import models as room_models  # noqa: F401
+    from app.modules.account_requests import models as req_models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     # Migration tay chỉ cần cho SQLite cũ; SQL Server luôn tạo mới đủ cột

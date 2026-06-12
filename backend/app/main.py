@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
+from app.modules.account_requests.router import router as account_requests_router
 from app.modules.auth.router import router as auth_router
 from app.modules.chat.router import router as chat_router
 from app.modules.courses.router import router as courses_router
@@ -43,6 +44,7 @@ def health():
 
 
 app.include_router(auth_router)
+app.include_router(account_requests_router)
 app.include_router(users_router)
 app.include_router(courses_router)
 app.include_router(documents_router)

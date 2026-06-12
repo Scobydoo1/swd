@@ -16,6 +16,7 @@ Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and So
 | **Quản lý tài liệu** | Upload PDF/DOCX/PPTX → tự động chunk & embed, xem trạng thái (PROCESSING / INDEXED / FAILED) |
 | **Quiz trắc nghiệm** | Lecturer tạo quiz theo **từng môn học**; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng; **điểm tự gửi về Lecturer** (bảng kết quả kèm tên sinh viên) |
 | **Phòng học (Rooms)** | Chỉ Admin/Lecturer tạo phòng gắn với môn học, **mời sinh viên** vào; trong phòng có quiz + slide/tài liệu của môn để sinh viên học và làm bài |
+| **Yêu cầu tài khoản** | Form public ở trang đăng nhập (họ tên, email, vai trò, lời nhắn) → Admin **duyệt** trong tab riêng → tài khoản tạo tự động + mật khẩu gửi qua email; chống spam theo IP |
 | **Gói dịch vụ** | 3 gói Free / Pro / Max cho **sinh viên** (rate-limit chat theo gói, nâng cấp tự phục vụ); giảng viên & admin được miễn |
 | **Phân quyền 3 actor** | Admin (toàn quyền), Lecturer (tài liệu + quiz + môn học + phòng học), User/Student (chat + phòng học + làm quiz) |
 | **App Android** | APK cài đặt từ cùng codebase React, build qua Capacitor |
@@ -662,7 +663,7 @@ npm run cap:open
 
 > Gói dịch vụ **chỉ áp dụng cho Sinh viên**. Giảng viên & Admin dùng đầy đủ tính năng, không bị rate-limit theo gói.
 
-> **Lưu ý:** Không còn đăng ký công khai. Tài khoản Sinh viên/Giảng viên do **Admin cấp** trong trang Quản lý người dùng — hệ thống tự sinh mật khẩu và gửi qua email; người dùng cũng có thể **đăng nhập bằng Google** với email đã được cấp. Admin đầu tiên seed từ env `ADMIN_EMAIL`/`ADMIN_PASSWORD` khi khởi động (hoặc chạy `python seed.py` để có dữ liệu demo).
+> **Lưu ý:** Không còn đăng ký công khai. Tài khoản Sinh viên/Giảng viên có 2 đường cấp: (1) **Admin tạo trực tiếp** trong trang Quản lý người dùng, hoặc (2) người dùng tự bấm **"Yêu cầu tài khoản"** ở trang đăng nhập → Admin **duyệt** trong tab "Yêu cầu chờ duyệt". Cả hai đường đều tự sinh mật khẩu và gửi qua email; người dùng cũng có thể **đăng nhập bằng Google** với email đã được cấp. Admin đầu tiên seed từ env `ADMIN_EMAIL`/`ADMIN_PASSWORD` khi khởi động (hoặc chạy `python seed.py` để có dữ liệu demo).
 
 ---
 
@@ -731,6 +732,11 @@ tạo tại https://myaccount.google.com/apppasswords). Có `BREVO_API_KEY` thì
 
 ## Quy trình sử dụng
 
+**Xin cấp tài khoản (người chưa có tài khoản):**
+1. Trang đăng nhập → bấm **Yêu cầu tài khoản** → điền họ tên, email, vai trò (SV/GV), lời nhắn → gửi.
+2. Admin → trang **Người dùng** → tab **Yêu cầu chờ duyệt** → bấm **Duyệt** (tài khoản tạo tự động, mật khẩu gửi về email người xin) hoặc **Từ chối**.
+3. Người xin nhận email mật khẩu → đăng nhập (hoặc dùng "Đăng nhập bằng Google" với chính email đó).
+
 **Hỏi đáp RAG (chỉ Sinh viên):**
 1. Đăng nhập Lecturer → vào **Tài liệu** → upload PDF/DOCX/PPTX. Đợi trạng thái *Đã index*.
 2. Đăng nhập Student → vào **Hỏi đáp** → chọn môn → đặt câu hỏi → nhận câu trả lời kèm trích dẫn.
@@ -770,6 +776,15 @@ python -m tests.evaluate --course-id 1
 - Test set: [backend/tests/test_set.json](backend/tests/test_set.json) — 50 câu hỏi + ground truth.
 - Dùng LLM-as-judge so với ground truth, in accuracy, lưu `tests/eval_result.json`.
 
+**Smoke test chức năng** (không cần API key — dùng DB tạm, mode local):
+
+```bash
+cd backend
+python -m tests.smoke_all     # toàn bộ chức năng: auth, yêu cầu tài khoản,
+                              # users, môn học, tài liệu, chat, quiz, rooms, gói
+python -m tests.smoke_rooms   # riêng flow phòng học + quiz + chat student-only
+```
+
 ---
 
 ## Cấu trúc thư mục
@@ -786,6 +801,7 @@ swd/
 │   │   ├── shared/              # dependencies, exceptions
 │   │   └── modules/
 │   │       ├── auth/            # Đăng nhập, JWT
+│   │       ├── account_requests/ # Yêu cầu tài khoản (public) + Admin duyệt
 │   │       ├── users/           # Quản lý user, role, plan
 │   │       ├── courses/         # Môn học, chương
 │   │       ├── documents/       # Upload, ingest, parsers
@@ -799,7 +815,9 @@ swd/
 │   ├── .env.example
 │   └── tests/
 │       ├── test_set.json        # 50 câu hỏi + ground truth
-│       └── evaluate.py          # Script đánh giá
+│       ├── evaluate.py          # Script đánh giá RAG
+│       ├── smoke_all.py         # Smoke test TOÀN BỘ chức năng qua API
+│       └── smoke_rooms.py       # Smoke test riêng phòng học + quiz + chat
 └── frontend/
     ├── src/
     │   ├── pages/

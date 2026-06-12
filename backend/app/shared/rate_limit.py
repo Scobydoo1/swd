@@ -10,7 +10,7 @@ cụ thể của subscription, xem `subscriptions/plans.py`.
 import time
 from collections import defaultdict, deque
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 
 from app.modules.subscriptions.plans import chat_per_min
 from app.modules.users.models import Role, User
@@ -46,3 +46,33 @@ class RateLimiter:
 
 # Cửa sổ 60 giây; số lượng cho phép lấy theo gói của từng người dùng.
 chat_rate_limit = RateLimiter(window_seconds=60)
+
+
+class IPRateLimiter:
+    """Giới hạn theo IP cho endpoint công khai (không cần đăng nhập).
+
+    Dùng cho form 'Yêu cầu tài khoản' — chống spam nhẹ, đủ cho monolith
+    single-process (sliding window trong bộ nhớ, giống RateLimiter ở trên).
+    """
+
+    def __init__(self, max_calls: int, window_seconds: int) -> None:
+        self.max_calls = max_calls
+        self.window = window_seconds
+        self._hits: dict[str, deque[float]] = defaultdict(deque)
+
+    def __call__(self, request: Request) -> None:
+        ip = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        hits = self._hits[ip]
+        while hits and now - hits[0] > self.window:
+            hits.popleft()
+        if len(hits) >= self.max_calls:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Bạn gửi yêu cầu quá nhanh. Vui lòng thử lại sau.",
+            )
+        hits.append(now)
+
+
+# Form yêu cầu tài khoản: tối đa 5 yêu cầu / giờ / IP.
+account_request_rate_limit = IPRateLimiter(max_calls=5, window_seconds=3600)

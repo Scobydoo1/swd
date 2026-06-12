@@ -36,7 +36,7 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 ### A. Functional Requirements theo actor
 
 #### User / Sinh viên (FR-USR)
-- `FR-USR-01` — Đăng ký / đăng nhập bằng email + mật khẩu, nhận JWT
+- `FR-USR-01` — Đăng nhập bằng email + mật khẩu (hoặc Google), nhận JWT. Không còn đăng ký công khai — tài khoản do Admin cấp hoặc duyệt từ form **Yêu cầu tài khoản** (FR-REQ)
 - `FR-USR-02` — Chat hỏi đáp tự nhiên theo ngữ cảnh hội thoại (RAG). **Chỉ Sinh viên** (Admin giữ quyền giám sát); Giảng viên không dùng AI chat → `403`
 - `FR-USR-03` — Xem trích dẫn nguồn tài liệu gốc kèm mỗi câu trả lời
 - `FR-USR-04` — Xem danh sách & lịch sử phiên chat của chính mình
@@ -52,6 +52,11 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 - `FR-ADM-03` — Xem toàn bộ phiên chat của mọi người dùng
 - `FR-ADM-04` — Cấu hình hệ thống qua env (model name, API key, paths)
 - `FR-ADM-05` — Đổi gói dịch vụ (plan) của người dùng: `PATCH /users/{id}/plan`
+
+#### Yêu cầu tài khoản (FR-REQ)
+- `FR-REQ-01` — Form **public** ở trang đăng nhập: họ tên + email + vai trò mong muốn (USER/LECTURER, không xin được ADMIN) + lời nhắn → lưu `AccountRequest` (PENDING). Chống spam: rate-limit 5 yêu cầu/giờ/IP; chặn email đã có tài khoản hoặc đã có yêu cầu PENDING
+- `FR-REQ-02` — Admin xem danh sách yêu cầu (lọc theo trạng thái) trong tab "Yêu cầu chờ duyệt"
+- `FR-REQ-03` — Admin **Duyệt** → tái dùng flow `create_account` (mật khẩu tự sinh + email thông báo qua Brevo/SMTP) → status APPROVED; hoặc **Từ chối** → REJECTED. Yêu cầu đã xử lý không duyệt lại được
 
 #### Quiz (FR-QZ)
 - `FR-QZ-01` — Lecturer/Admin tạo quiz trắc nghiệm gắn với **từng môn học** (nhiều câu, mỗi câu ≥2 lựa chọn, 1 đáp án đúng)
@@ -114,6 +119,13 @@ backend/
 │   │   │   ├── router.py        # POST /auth/login, /auth/register
 │   │   │   ├── service.py       # Verify password, issue JWT
 │   │   │   ├── security.py      # Hash password, encode/decode JWT
+│   │   │   └── schemas.py
+│   │   │
+│   │   ├── account_requests/    # MODULE: Yêu cầu tài khoản (public + Admin duyệt)
+│   │   │   ├── router.py        # POST /account-requests, /{id}/approve|reject
+│   │   │   ├── service.py       # Chặn trùng; duyệt -> create_account + email
+│   │   │   ├── repository.py
+│   │   │   ├── models.py        # AccountRequest (PENDING|APPROVED|REJECTED)
 │   │   │   └── schemas.py
 │   │   │
 │   │   ├── users/               # MODULE: Quản lý người dùng (Admin)
@@ -238,6 +250,10 @@ frontend/
 |--------|------|-------|-------|
 | POST | `/api/auth/register` | Đăng ký tài khoản | Public |
 | POST | `/api/auth/login` | Đăng nhập → JWT | Public |
+| POST | `/api/account-requests` | Gửi yêu cầu tài khoản (rate-limit theo IP) | Public |
+| GET | `/api/account-requests` | Danh sách yêu cầu (lọc `?status=`) | Admin |
+| POST | `/api/account-requests/{id}/approve` | Duyệt → tạo tài khoản + gửi email | Admin |
+| POST | `/api/account-requests/{id}/reject` | Từ chối yêu cầu | Admin |
 | GET | `/api/users` | Danh sách người dùng | Admin |
 | PATCH | `/api/users/{id}/role` | Đổi role người dùng | Admin |
 | POST | `/api/documents` | Upload file → ingest | Lecturer, Admin |
@@ -283,6 +299,7 @@ frontend/
 - **QuizAttempt** (id, quiz_id → Quiz, user_id → User, score, answers_json, created_at)
 - **Room** (id, name, description, course_id → Course, created_by → User[Lecturer/Admin], created_at)
 - **RoomMember** (id, room_id → Room, user_id → User[Student], added_at) — unique (room_id, user_id)
+- **AccountRequest** (id, email, full_name, requested_role[LECTURER|USER], message, status[PENDING|APPROVED|REJECTED], created_at, decided_at?)
 
 Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để gọn).
 Gói dịch vụ (Free/Pro/Max + giá + tính năng) định nghĩa tĩnh trong `subscriptions/plans.py`, không lưu DB.
