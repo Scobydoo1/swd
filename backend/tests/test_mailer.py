@@ -29,17 +29,22 @@ def test_send_success_via_smtp(client, monkeypatch):
 
         def send_message(self, msg):
             sent["to"] = msg["To"]
+            sent["subject"] = msg["Subject"]
+            sent["body"] = msg.get_payload(decode=True).decode("utf-8")
 
     monkeypatch.setattr(settings, "smtp_user", "bot@gmail.com")
     monkeypatch.setattr(settings, "smtp_password", "app-password")
     monkeypatch.setattr(smtplib, "SMTP_SSL", FakeSMTP)
 
     assert mailer.send_account_email("sv@uni.edu", "Sinh Viên", "pw123") is True
-    assert sent == {
-        "host": "smtp.gmail.com",
-        "login": "bot@gmail.com",
-        "to": "sv@uni.edu",
-    }
+    assert sent["host"] == "smtp.gmail.com"
+    assert sent["login"] == "bot@gmail.com"
+    assert sent["to"] == "sv@uni.edu"
+    # Email phải là thông báo "duyệt thành công" kèm thông tin đăng nhập.
+    assert "duyệt" in sent["subject"].lower()
+    assert "DUYỆT THÀNH CÔNG" in sent["body"]
+    assert "sv@uni.edu" in sent["body"]
+    assert "pw123" in sent["body"]
 
 
 def test_send_returns_false_on_smtp_error(client, monkeypatch):

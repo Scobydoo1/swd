@@ -23,15 +23,20 @@ def send_account_email(to: str, full_name: str, password: str) -> bool:
 
     body = (
         f"Xin chào {full_name},\n\n"
-        "Tài khoản Maple của bạn đã được Quản trị viên tạo:\n\n"
-        f"  Email đăng nhập: {to}\n"
-        f"  Mật khẩu: {password}\n\n"
+        "Chúc mừng! Tài khoản của bạn đã được Quản trị viên DUYỆT THÀNH CÔNG "
+        "trên hệ thống Maple 🍁.\n\n"
+        "Thông tin đăng nhập của bạn:\n"
+        f"  • Email:    {to}\n"
+        f"  • Mật khẩu: {password}\n\n"
         f"Đăng nhập tại: {settings.app_login_url}\n"
-        'Bạn cũng có thể bấm "Đăng nhập bằng Google" với chính email này.\n\n'
-        "-- Maple 🍁"
+        'Bạn cũng có thể bấm "Đăng nhập bằng Google" với chính email này — '
+        "không cần nhớ mật khẩu.\n\n"
+        "Mẹo: sau khi đăng nhập, bạn có thể vào ngay mục Chat để hỏi đáp "
+        "dựa trên tài liệu môn học.\n\n"
+        "-- Maple 🍁 — Trợ lý học tập AI"
     )
     msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = "Tài khoản Maple của bạn đã được tạo"
+    msg["Subject"] = "🎉 Tài khoản của bạn đã được duyệt — Maple"
     msg["From"] = settings.mail_from or settings.smtp_user
     msg["To"] = to
 
