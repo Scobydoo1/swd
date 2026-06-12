@@ -5,7 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { api } from "../api/client";
+import { api, warmUpBackend } from "../api/client";
 import type { TokenResponse, User } from "../types";
 
 interface AuthCtx {
@@ -24,6 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Đánh thức backend (Render free) ngay khi mở app để tránh lỗi cold-start
+    // lúc đăng nhập.
+    warmUpBackend();
     const token = localStorage.getItem("token");
     if (!token) {
       setLoading(false);
