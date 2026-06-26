@@ -18,6 +18,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 _SUBJECT = "🎉 Tài khoản của bạn đã được duyệt — Maple"
+_ADMIN_SUBJECT = "🔔 Yêu cầu tài khoản mới — Maple"
 
 
 def _build_body(to: str, full_name: str, password: str) -> str:
@@ -37,14 +38,14 @@ def _build_body(to: str, full_name: str, password: str) -> str:
     )
 
 
-def _send_via_brevo(to: str, body: str) -> bool:
+def _send_via_brevo(to: str, body: str, subject: str = _SUBJECT) -> bool:
     payload = {
         "sender": {
             "name": "Maple",
             "email": settings.mail_from or settings.smtp_user,
         },
         "to": [{"email": to}],
-        "subject": _SUBJECT,
+        "subject": subject,
         "textContent": body,
     }
     req = urllib.request.Request(
@@ -61,15 +62,24 @@ def _send_via_brevo(to: str, body: str) -> bool:
         return 200 <= res.status < 300
 
 
-def _send_via_smtp(to: str, body: str) -> bool:
+def _send_via_smtp(to: str, body: str, subject: str = _SUBJECT) -> bool:
     msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = _SUBJECT
+    msg["Subject"] = subject
     msg["From"] = settings.mail_from or settings.smtp_user
     msg["To"] = to
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
         smtp.login(settings.smtp_user, settings.smtp_password)
         smtp.send_message(msg)
     return True
+
+
+def _send(to: str, body: str, subject: str) -> bool:
+    """Chọn đường gửi (Brevo ưu tiên, fallback SMTP). False nếu chưa cấu hình."""
+    if settings.brevo_api_key:
+        return _send_via_brevo(to, body, subject)
+    if settings.smtp_user and settings.smtp_password:
+        return _send_via_smtp(to, body, subject)
+    return False
 
 
 def send_account_email(to: str, full_name: str, password: str) -> bool:
@@ -80,17 +90,46 @@ def send_account_email(to: str, full_name: str, password: str) -> bool:
     """
     body = _build_body(to, full_name, password)
     try:
-        if settings.brevo_api_key:
-            return _send_via_brevo(to, body)
-        if settings.smtp_user and settings.smtp_password:
-            return _send_via_smtp(to, body)
-        return False
+        return _send(to, body, _SUBJECT)
     except Exception as e:
         # Ghi loại lỗi + thông điệp để chẩn đoán (auth sai / cổng bị chặn /
         # timeout...). KHÔNG log mật khẩu.
         logger.warning(
             "Gửi email cấp tài khoản tới %s thất bại: %s: %s",
             to,
+            type(e).__name__,
+            e,
+        )
+        return False
+
+
+def send_admin_new_request_email(
+    requester_name: str, requester_email: str, requested_role: str, message: str
+) -> bool:
+    """Báo cho Admin (settings.admin_email) biết có yêu cầu tài khoản mới.
+
+    Best-effort: trả False nếu chưa cấu hình mail hoặc chưa đặt ADMIN_EMAIL;
+    caller KHÔNG chặn luồng lưu yêu cầu khi gửi thất bại.
+    """
+    admin_to = settings.admin_email
+    if not admin_to:
+        return False
+    body = (
+        "Có một yêu cầu cấp tài khoản mới trên hệ thống Maple 🍁.\n\n"
+        f"  • Họ tên:  {requester_name}\n"
+        f"  • Email:   {requester_email}\n"
+        f"  • Vai trò: {requested_role}\n"
+        f"  • Lời nhắn: {message or '(không có)'}\n\n"
+        "Vào trang Quản lý người dùng → tab 'Yêu cầu chờ duyệt' để Duyệt "
+        "hoặc Từ chối:\n"
+        f"  {settings.app_login_url}\n\n"
+        "-- Maple 🍁 — Trợ lý học tập AI"
+    )
+    try:
+        return _send(admin_to, body, _ADMIN_SUBJECT)
+    except Exception as e:
+        logger.warning(
+            "Gửi email báo yêu cầu tài khoản tới admin thất bại: %s: %s",
             type(e).__name__,
             e,
         )

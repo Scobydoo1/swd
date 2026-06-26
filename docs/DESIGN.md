@@ -146,7 +146,9 @@ classDiagram
     class ChatSession {
         +int id
         +int user_id
+        +int course_id
         +str title
+        +bool pinned
         +datetime created_at
     }
     class Message {
@@ -200,6 +202,22 @@ classDiagram
         +int user_id
         +datetime added_at
     }
+    class AccountRequest {
+        +int id
+        +str email
+        +str full_name
+        +Role requested_role
+        +str message
+        +RequestStatus status
+        +datetime created_at
+        +datetime decided_at
+    }
+    class RequestStatus {
+        <<enumeration>>
+        PENDING
+        APPROVED
+        REJECTED
+    }
 
     User "1" --> "0..*" Course : owns (Lecturer)
     User "1" --> "0..*" Document : uploads
@@ -222,6 +240,8 @@ classDiagram
     User --> Plan
     Document --> FileType
     Document --> Status
+    AccountRequest --> RequestStatus
+    AccountRequest --> Role
 ```
 
 ---
@@ -385,15 +405,21 @@ graph TB
 
         subgraph Modules["Business Modules"]
             AUTH[auth]
+            ACCRQ[account_requests]
             USERS[users]
             DOCS[documents]
             COURSES[courses]
             CHAT[chat]
+            QUIZ[quizzes]
+            ROOMS[rooms]
+            SUBS[subscriptions]
         end
 
         subgraph Shared["Shared Services"]
             RAG[rag: Embedder + Retriever + VectorStore Facade]
             LLMW[llm: Google Gemini client]
+            MAILER[shared/mailer: Brevo / SMTP]
+            RATELIMIT[shared/rate_limit: plan + IP limiter]
         end
     end
 
@@ -407,18 +433,28 @@ graph TB
     end
 
     Client -->|REST /api| API
-    API --> AUTH & USERS & DOCS & COURSES & CHAT
+    API --> AUTH & ACCRQ & USERS & DOCS & COURSES & CHAT & QUIZ & ROOMS & SUBS
     DOCS --> RAG
     CHAT --> RAG
     CHAT --> LLMW
+    CHAT --> RATELIMIT
     AUTH --> USERS
+    ACCRQ --> USERS
+    ACCRQ --> MAILER
+    ROOMS --> QUIZ
+    ROOMS --> DOCS
     DOCS --> SQLITE
     USERS --> SQLITE
     COURSES --> SQLITE
     CHAT --> SQLITE
+    QUIZ --> SQLITE
+    ROOMS --> SQLITE
+    SUBS --> SQLITE
+    ACCRQ --> SQLITE
     RAG --> CHROMA
     RAG --> GEMINI
     LLMW --> GEMINI
+    MAILER -->|Brevo API / SMTP| External
 ```
 
 ---
@@ -478,11 +514,13 @@ erDiagram
     COURSE ||--o{ DOCUMENT : groups
     COURSE ||--o{ QUIZ : has
     COURSE ||--o{ ROOM : groups
+    COURSE ||--o{ CHATSESSION : "context (optional)"
     ROOM ||--o{ ROOM_MEMBER : has
     CHAPTER ||--o{ DOCUMENT : "optional"
     CHATSESSION ||--o{ MESSAGE : contains
     QUIZ ||--o{ QUIZQUESTION : contains
     QUIZ ||--o{ QUIZATTEMPT : "graded by"
+    ACCOUNT_REQUEST ||--o{ USER : "approved -> creates"
 
     USER {
         int id PK
@@ -519,7 +557,9 @@ erDiagram
     CHATSESSION {
         int id PK
         int user_id FK
+        int course_id FK "nullable"
         string title
+        bool pinned
         datetime created_at
     }
     MESSAGE {
@@ -566,6 +606,16 @@ erDiagram
         int room_id FK
         int user_id FK
         datetime added_at
+    }
+    ACCOUNT_REQUEST {
+        int id PK
+        string email
+        string full_name
+        enum requested_role "LECTURER|USER"
+        string message
+        enum status "PENDING|APPROVED|REJECTED"
+        datetime created_at
+        datetime decided_at "nullable"
     }
 ```
 
@@ -623,20 +673,24 @@ graph TD
 
     subgraph modules
         AUTH[auth]
+        ACCRQ[account_requests]
         USERS[users]
         COURSES[courses]
         DOCUMENTS[documents]
         CHAT[chat]
         QUIZZES[quizzes]
         ROOMS[rooms]
+        SUBS[subscriptions]
         RAG[rag]
     end
     LLM[app.llm<br/>Gemini client]
 
-    MAIN --> AUTH & USERS & COURSES & DOCUMENTS & CHAT & QUIZZES & ROOMS
+    MAIN --> AUTH & ACCRQ & USERS & COURSES & DOCUMENTS & CHAT & QUIZZES & ROOMS & SUBS
     MAIN --> CONFIG
     AUTH --> USERS
     AUTH --> SHARED
+    ACCRQ --> USERS
+    ACCRQ --> SHARED
     USERS --> DB
     COURSES --> DB
     DOCUMENTS --> DB
@@ -652,6 +706,8 @@ graph TD
     ROOMS --> QUIZZES
     ROOMS --> DOCUMENTS
     ROOMS --> SHARED
+    SUBS --> DB
+    SUBS --> USERS
     RAG --> LLM
     RAG --> CONFIG
     LLM --> CONFIG

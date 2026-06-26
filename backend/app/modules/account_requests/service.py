@@ -11,6 +11,7 @@ from app.modules.account_requests.schemas import (
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import UserCreate
 from app.modules.users.service import UserService
+from app.shared import mailer
 
 
 class AccountRequestService:
@@ -40,6 +41,14 @@ class AccountRequestService:
             full_name=payload.full_name,
             requested_role=payload.role,
             message=payload.message.strip(),
+        )
+        # Báo cho Admin biết có yêu cầu mới (best-effort — không chặn nếu mail
+        # chưa cấu hình hoặc gửi lỗi; Admin vẫn thấy trong tab "Yêu cầu chờ duyệt").
+        mailer.send_admin_new_request_email(
+            requester_name=req.full_name,
+            requester_email=req.email,
+            requested_role=req.requested_role.value,
+            message=req.message,
         )
         return AccountRequestOut.model_validate(req)
 
