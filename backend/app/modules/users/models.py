@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, case
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -63,6 +63,7 @@ class User(Base):
     role_id: Mapped[int] = mapped_column(
         ForeignKey("roles.id"), default=ROLE_IDS[Role.USER]
     )
+    role_ref: Mapped["RoleModel"] = relationship(lazy="joined")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # role là entity riêng (bảng roles). hybrid_property cho phép vừa dùng

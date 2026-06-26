@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, case
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.modules.users.models import ID_TO_ROLE, ROLE_IDS, Role
@@ -27,6 +27,7 @@ class AccountRequest(Base):
     requested_role_id: Mapped[int] = mapped_column(
         ForeignKey("roles.id"), default=ROLE_IDS[Role.USER]
     )
+    role_ref: Mapped["RoleModel"] = relationship(lazy="joined")
     message: Mapped[str] = mapped_column(String(1000), default="")
     status: Mapped[RequestStatus] = mapped_column(
         Enum(RequestStatus), default=RequestStatus.PENDING
