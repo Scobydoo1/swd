@@ -48,10 +48,12 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _seed_roles()
-    # Migration tay chỉ cần cho SQLite cũ; SQL Server luôn tạo mới đủ cột
-    # qua create_all nên bỏ qua (PRAGMA là cú pháp riêng của SQLite).
+    # Migration tay: create_all không tự ALTER bảng đã tồn tại.
+    # Cần chạy migration riêng cho từng loại DB.
     if IS_SQLITE:
         _run_lightweight_migrations()
+    else:
+        _run_pg_migrations()
 
 
 def _seed_roles() -> None:
@@ -142,3 +144,90 @@ def _run_lightweight_migrations() -> None:
                         "WHERE requested_role_id IS NULL"
                     )
                 )
+
+
+def _run_pg_migrations() -> None:
+    """Migration tay cho PostgreSQL (Render).
+
+    create_all chỉ tạo bảng mới, không ALTER bảng đã tồn tại.
+    Dùng information_schema.columns để phát hiện cột thiếu rồi ALTER.
+    """
+
+    def _pg_columns(conn, table: str) -> set[str]:
+        rows = conn.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = :t"
+            ),
+            {"t": table},
+        )
+        return {row[0] for row in rows}
+
+    with engine.begin() as conn:
+        # --- bảng users ---
+        user_cols = _pg_columns(conn, "users")
+        if not user_cols:
+            return  # bảng chưa tồn tại, create_all sẽ lo
+
+        # Bỏ cột plan cũ (subscription đã gỡ)
+        if "plan" in user_cols:
+            conn.execute(text("ALTER TABLE users DROP COLUMN plan"))
+
+        # role (text/enum) -> role_id (FK -> roles)
+        if "role_id" not in user_cols:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN role_id INTEGER")
+            )
+            if "role" in user_cols:
+                conn.execute(
+                    text(
+                        "UPDATE users SET role_id = CASE role "
+                        "WHEN 'ADMIN' THEN 1 WHEN 'LECTURER' THEN 2 ELSE 3 END"
+                    )
+                )
+                conn.execute(text("ALTER TABLE users DROP COLUMN role"))
+            else:
+                conn.execute(
+                    text("UPDATE users SET role_id = 3 WHERE role_id IS NULL")
+                )
+
+        # --- bảng account_requests ---
+        req_cols = _pg_columns(conn, "account_requests")
+        if req_cols and "requested_role_id" not in req_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE account_requests "
+                    "ADD COLUMN requested_role_id INTEGER"
+                )
+            )
+            if "requested_role" in req_cols:
+                conn.execute(
+                    text(
+                        "UPDATE account_requests SET requested_role_id = CASE "
+                        "requested_role WHEN 'ADMIN' THEN 1 "
+                        "WHEN 'LECTURER' THEN 2 ELSE 3 END"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE account_requests "
+                        "DROP COLUMN requested_role"
+                    )
+                )
+            else:
+                conn.execute(
+                    text(
+                        "UPDATE account_requests SET requested_role_id = 3 "
+                        "WHERE requested_role_id IS NULL"
+                    )
+                )
+
+        # --- bảng chat_sessions ---
+        chat_cols = _pg_columns(conn, "chat_sessions")
+        if chat_cols and "pinned" not in chat_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE chat_sessions "
+                    "ADD COLUMN pinned BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
