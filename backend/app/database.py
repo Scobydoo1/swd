@@ -94,10 +94,9 @@ def _run_lightweight_migrations() -> None:
         user_cols = {
             row[1] for row in conn.execute(text("PRAGMA table_info(users)"))
         }
-        if "plan" not in user_cols:
-            conn.execute(
-                text("ALTER TABLE users ADD COLUMN plan VARCHAR NOT NULL DEFAULT 'FREE'")
-            )
+        # Đã bỏ subscription: gỡ cột plan cũ nếu DB cũ còn (SQLite 3.35+).
+        if "plan" in user_cols:
+            conn.execute(text("ALTER TABLE users DROP COLUMN plan"))
 
         # role (enum) -> roles table: thêm role_id, backfill từ cột role cũ rồi
         # bỏ cột role (SQLite 3.35+ hỗ trợ DROP COLUMN; Python 3.11 đủ mới).

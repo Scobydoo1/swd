@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, case
+from sqlalchemy import DateTime, ForeignKey, Integer, String, case
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,12 +12,6 @@ class Role(str, enum.Enum):
     ADMIN = "ADMIN"
     LECTURER = "LECTURER"
     USER = "USER"
-
-
-class Plan(str, enum.Enum):
-    FREE = "FREE"
-    PRO = "PRO"
-    MAX = "MAX"
 
 
 # Role được tách thành entity riêng (bảng roles) — users tham chiếu qua role_id
@@ -43,7 +37,7 @@ ROLE_SEED = [
         "id": 3,
         "code": "USER",
         "name": "Sinh viên",
-        "description": "Chat hỏi đáp RAG, làm quiz, tham gia phòng học, gói dịch vụ",
+        "description": "Chat hỏi đáp RAG, làm quiz, tham gia phòng học",
     },
 ]
 
@@ -69,7 +63,6 @@ class User(Base):
     role_id: Mapped[int] = mapped_column(
         ForeignKey("roles.id"), default=ROLE_IDS[Role.USER]
     )
-    plan: Mapped[Plan] = mapped_column(Enum(Plan), default=Plan.FREE)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # role là entity riêng (bảng roles). hybrid_property cho phép vừa dùng

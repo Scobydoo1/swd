@@ -17,7 +17,6 @@ import {
   IconRoom,
   IconSearch,
   IconSidebar,
-  IconSpark,
   IconTrash,
   IconUsers,
 } from "../Icons";
@@ -79,11 +78,12 @@ export function AppLayout() {
   );
   const [q, setQ] = useState("");
 
-  const canManage = user?.role === "ADMIN" || user?.role === "LECTURER";
-  // Chỉ Sinh viên có gói dịch vụ; Giảng viên & Admin được miễn.
+  const isAdmin = user?.role === "ADMIN";
+  const isLecturer = user?.role === "LECTURER";
   const isStudent = user?.role === "USER";
-  // Giảng viên không dùng AI chat — ẩn mục Hỏi đáp + lịch sử trò chuyện.
-  const hasChat = user?.role !== "LECTURER";
+  // Admin chỉ quản lý người dùng (không chat/quiz/phòng/tài liệu trong UI);
+  // Giảng viên không dùng AI chat. Chỉ Sinh viên có mục Hỏi đáp + lịch sử.
+  const hasChat = isStudent;
   const onChat = location.pathname === "/";
 
   // Trên mobile, đóng drawer sau khi điều hướng / chọn cuộc trò chuyện.
@@ -215,15 +215,16 @@ export function AppLayout() {
           {hasChat && (
             <NavItem to="/" label={t("nav.chat")} icon={<IconChat size={19} />} onClick={closeOnMobile} />
           )}
-          {canManage && (
+          {isLecturer && (
             <NavItem to="/documents" label={t("nav.documents")} icon={<IconBook size={19} />} onClick={closeOnMobile} />
           )}
-          <NavItem to="/rooms" label={t("nav.rooms")} icon={<IconRoom size={19} />} onClick={closeOnMobile} />
-          <NavItem to="/quizzes" label={t("nav.quiz")} icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
-          {isStudent && (
-            <NavItem to="/pricing" label={t("nav.pricing")} icon={<IconSpark size={19} />} onClick={closeOnMobile} />
+          {!isAdmin && (
+            <NavItem to="/rooms" label={t("nav.rooms")} icon={<IconRoom size={19} />} onClick={closeOnMobile} />
           )}
-          {user?.role === "ADMIN" && (
+          {!isAdmin && (
+            <NavItem to="/quizzes" label={t("nav.quiz")} icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
+          )}
+          {isAdmin && (
             <NavItem to="/admin" label={t("nav.users")} icon={<IconUsers size={19} />} onClick={closeOnMobile} />
           )}
         </nav>
@@ -301,11 +302,6 @@ export function AppLayout() {
               </div>
               <div className="flex items-center gap-1.5 text-[12.5px] text-ink-faint">
                 <span className="truncate">{t(`role.${user?.role ?? "USER"}`)}</span>
-                {isStudent && (
-                  <span className="flex-none rounded-full bg-accent/12 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-accent">
-                    {user?.plan ?? "FREE"}
-                  </span>
-                )}
               </div>
             </div>
             <button

@@ -16,9 +16,8 @@ Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and So
 | **Quản lý tài liệu** | Upload PDF/DOCX/PPTX → tự động chunk & embed, xem trạng thái (PROCESSING / INDEXED / FAILED) |
 | **Quiz trắc nghiệm** | Lecturer tạo quiz theo **từng môn học**; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng; **điểm tự gửi về Lecturer** (bảng kết quả kèm tên sinh viên) |
 | **Phòng học (Rooms)** | Chỉ Admin/Lecturer tạo phòng gắn với môn học, **mời sinh viên** vào; trong phòng có quiz + slide/tài liệu của môn để sinh viên học và làm bài |
-| **Yêu cầu tài khoản** | Form public ở trang đăng nhập (họ tên, email, vai trò, lời nhắn) → Admin **duyệt** trong tab riêng → tài khoản tạo tự động + mật khẩu gửi qua email; chống spam theo IP |
-| **Gói dịch vụ** | 3 gói Free / Pro / Max cho **sinh viên** (rate-limit chat theo gói, nâng cấp tự phục vụ); giảng viên & admin được miễn |
-| **Phân quyền 3 actor** | Admin (toàn quyền), Lecturer (tài liệu + quiz + môn học + phòng học), User/Student (chat + phòng học + làm quiz) |
+| **Yêu cầu tài khoản** | Form public ở trang đăng nhập (họ tên, email, vai trò, lời nhắn) → Admin **duyệt** trong tab riêng → tài khoản tạo tự động + mật khẩu gửi qua email; chống spam theo IP; Admin nhận email báo khi có yêu cầu mới |
+| **Phân quyền 3 actor** | Admin (**chỉ quản lý người dùng** + duyệt yêu cầu tài khoản), Lecturer (tài liệu + quiz + môn học + phòng học), User/Student (chat + phòng học + làm quiz) |
 | **App Android** | APK cài đặt từ cùng codebase React, build qua Capacitor |
 
 ---
@@ -54,7 +53,7 @@ graph LR
 
     subgraph "Maple RAG Chatbot"
         UC1[Đăng nhập]
-        UC2[Quản lý người dùng & role & plan]
+        UC2[Quản lý người dùng & role]
         UC3[Quản lý môn học / chương]
         UC4[Upload tài liệu PDF/DOCX/Slide]
         UC5[Xem danh sách tài liệu đã index]
@@ -62,10 +61,9 @@ graph LR
         UC7[Chat hỏi đáp theo ngữ cảnh — chỉ Sinh viên]
         UC8[Xem trích dẫn nguồn]
         UC9[Quản lý phiên chat]
-        UC10[Xem thống kê / lịch sử toàn hệ thống]
+        UC10[Duyệt / từ chối yêu cầu tài khoản]
         UC11[Tạo & quản lý Quiz theo môn]
         UC12[Làm Quiz & xem điểm]
-        UC13[Xem & nâng cấp gói dịch vụ]
         UC14[Xem bảng điểm quiz của sinh viên]
         UC15[Tạo phòng học & mời sinh viên]
         UC16[Tham gia phòng học - quiz + tài liệu]
@@ -77,7 +75,6 @@ graph LR
     User --> UC8
     User --> UC9
     User --> UC12
-    User --> UC13
     User --> UC16
 
     Lecturer --> UC1
@@ -91,21 +88,11 @@ graph LR
 
     Admin --> UC1
     Admin --> UC2
-    Admin --> UC3
-    Admin --> UC4
-    Admin --> UC5
-    Admin --> UC6
-    Admin --> UC7
-    Admin --> UC9
     Admin --> UC10
-    Admin --> UC11
-    Admin --> UC13
-    Admin --> UC14
-    Admin --> UC15
 ```
 
-> Giảng viên **không** dùng AI chat (UC7) — hỏi đáp RAG là tính năng dành cho Sinh viên;
-> Admin giữ quyền giám sát toàn hệ thống.
+> Admin **chỉ quản lý người dùng** + duyệt yêu cầu tài khoản (UI không có chat/quiz/phòng/tài liệu).
+> Giảng viên **không** dùng AI chat (UC7) — hỏi đáp RAG là tính năng dành cho Sinh viên.
 
 ## 2. Class Diagram (Domain Model)
 
@@ -117,7 +104,6 @@ classDiagram
         +str password_hash
         +str full_name
         +int role_id
-        +Plan plan
         +datetime created_at
     }
     class Role {
@@ -125,12 +111,6 @@ classDiagram
         +str code
         +str name
         +str description
-    }
-    class Plan {
-        <<enumeration>>
-        FREE
-        PRO
-        MAX
     }
     class Course {
         +int id
@@ -207,7 +187,6 @@ classDiagram
     }
 
     Role "1" --> "0..*" User : assigned to
-    User --> Plan
     User "1" --> "0..*" Course : owns
     User "1" --> "0..*" Document : uploads
     User "1" --> "0..*" ChatSession : has
@@ -368,7 +347,6 @@ graph TB
         DP[DocumentsPage]
         RP[RoomsPage + RoomDetailPage]
         QP[QuizzesPage]
-        PP[PricingPage]
         AP[AdminPage]
     end
 
@@ -387,13 +365,12 @@ graph TB
             CHAT[chat]
             QUIZ[quizzes]
             ROOMS[rooms]
-            SUB[subscriptions]
         end
 
         subgraph Shared["Shared Services"]
             RAG[rag: Embedder + Retriever + Facade]
             LLMW[llm: Gemini client]
-            RL[rate_limit: plan-aware]
+            RL[rate_limit: giới hạn cố định cho SV]
         end
     end
 
@@ -404,7 +381,7 @@ graph TB
 
     Client -->|REST /api| API
     Android -->|REST http://10.0.2.2:8000/api| API
-    API --> AUTH & USERS & DOCS & COURSES & CHAT & QUIZ & ROOMS & SUB
+    API --> AUTH & USERS & DOCS & COURSES & CHAT & QUIZ & ROOMS
     DOCS --> RAG
     CHAT --> RAG
     CHAT --> LLMW
@@ -452,7 +429,6 @@ erDiagram
         string password_hash
         string full_name
         int role_id FK
-        enum plan "FREE|PRO|MAX"
         datetime created_at
     }
     ACCOUNT_REQUEST {
@@ -678,7 +654,7 @@ Chạy `python seed.py` để tạo 3 tài khoản demo (Admin / Lecturer / Stud
 
 > ⚠️ **Không chạy `seed.py` trên production.** Script sẽ từ chối seed tài khoản demo khi `DATABASE_URL` không phải SQLite (cần cờ `--demo-users` để ép). Trên production, Admin đầu tiên tạo từ env `ADMIN_EMAIL` / `ADMIN_PASSWORD` (đặt mật khẩu mạnh, đổi sau lần đăng nhập đầu).
 
-> Gói dịch vụ **chỉ áp dụng cho Sinh viên**. Giảng viên & Admin dùng đầy đủ tính năng, không bị rate-limit theo gói.
+> Chat AI **chỉ dành cho Sinh viên** (giới hạn cố định ~30 câu/phút mỗi SV để tránh lạm dụng). Giảng viên không dùng AI chat; Admin chỉ quản lý người dùng.
 
 > **Lưu ý:** Không còn đăng ký công khai. Tài khoản Sinh viên/Giảng viên có 2 đường cấp: (1) **Admin tạo trực tiếp** trong trang Quản lý người dùng, hoặc (2) người dùng tự bấm **"Yêu cầu tài khoản"** ở trang đăng nhập → Admin **duyệt** trong tab "Yêu cầu chờ duyệt". Cả hai đường đều tự sinh mật khẩu và gửi qua email; người dùng cũng có thể **đăng nhập bằng Google** với email đã được cấp.
 
@@ -690,6 +666,12 @@ Chạy `python seed.py` để tạo 3 tài khoản demo (Admin / Lecturer / Stud
 1. Tạo project free tại https://neon.tech → copy connection string.
 2. Đổi prefix `postgresql://` thành `postgresql+psycopg2://` khi dùng làm `DATABASE_URL`.
    (pgvector được bật tự động bởi app: `CREATE EXTENSION IF NOT EXISTS vector`.)
+
+> ⚠️ **Neon DB đã có dữ liệu cũ?** Auto-migration của app chỉ chạy cho SQLite. Với
+> Postgres đã tồn tại bảng `users` từ trước (còn cột `role`/`plan`), chạy một lần
+> script [docs/migrations/2026-06-26-role-entity-drop-plan.sql](docs/migrations/2026-06-26-role-entity-drop-plan.sql)
+> trong Neon SQL Editor để tách bảng `roles` + bỏ cột `plan`. **DB Neon mới tinh thì
+> không cần** — app tự dựng đúng lược đồ khi khởi động.
 
 ### 2. Render (backend FastAPI)
 1. https://render.com → New → Blueprint → trỏ repo này (đọc [render.yaml](render.yaml)).
@@ -735,13 +717,13 @@ tạo tại https://myaccount.google.com/apppasswords). Có `BREVO_API_KEY` thì
 |---|---|---|
 | ![Chat](docs/screenshots/web/02-chat.png) | ![Tài liệu](docs/screenshots/web/03-documents.png) | ![Quiz](docs/screenshots/web/04-quizzes.png) |
 
-| Gói dịch vụ (Sinh viên) | Tạo quiz (Lecturer) | Quản lý người dùng (Admin) |
-|---|---|---|
-| ![Pricing](docs/screenshots/web/05-pricing.png) | ![Tạo quiz](docs/screenshots/web/07-quiz-create-modal.png) | ![Admin](docs/screenshots/web/06-admin-users.png) |
+| Tạo quiz (Lecturer) | Quản lý người dùng (Admin) |
+|---|---|
+| ![Tạo quiz](docs/screenshots/web/07-quiz-create-modal.png) | ![Admin](docs/screenshots/web/06-admin-users.png) |
 
 **Android** (Capacitor — cùng codebase)
 
-| Đăng nhập | Hỏi đáp | Quiz | Menu Giảng viên (không có gói) |
+| Đăng nhập | Hỏi đáp | Quiz | Menu Giảng viên |
 |---|---|---|---|
 | ![Login](docs/screenshots/mobile/01-launch.png) | ![Chat](docs/screenshots/mobile/04-chat.png) | ![Quiz](docs/screenshots/mobile/05-quizzes.png) | ![Lecturer](docs/screenshots/mobile/06-lecturer-nav.png) |
 
@@ -759,10 +741,10 @@ tạo tại https://myaccount.google.com/apppasswords). Có `BREVO_API_KEY` thì
 2. Đăng nhập Student → vào **Hỏi đáp** → chọn môn → đặt câu hỏi → nhận câu trả lời kèm trích dẫn.
 
 > Giảng viên **không có** mục Hỏi đáp — AI chat là tính năng dành cho sinh viên
-> (backend trả 403 nếu Lecturer gọi `/api/chat`). Admin vẫn truy cập được để giám sát.
+> (backend trả 403 nếu Lecturer gọi `/api/chat`). Admin chỉ quản lý người dùng nên cũng không có mục Hỏi đáp.
 
 **Phòng học (Rooms):**
-1. Lecturer (hoặc Admin) → **Phòng học** → **Tạo phòng** → đặt tên + chọn môn học.
+1. Lecturer → **Phòng học** → **Tạo phòng** → đặt tên + chọn môn học.
 2. Mở phòng → **Mời sinh viên** (nhập email hoặc chọn nhanh từ danh sách).
 3. Student → **Phòng học** → thấy phòng mình được mời → vào phòng là có **quiz của môn để làm** và **slide/tài liệu để học**.
 
@@ -771,10 +753,9 @@ tạo tại https://myaccount.google.com/apppasswords). Có `BREVO_API_KEY` thì
 2. Student → **Quiz** (hoặc trong **Phòng học**) → **Làm bài** → chọn đáp án → **Nộp bài** → xem điểm + đáp án đúng tức thì.
 3. Lecturer → nút **Kết quả** trên quiz → xem bảng điểm từng sinh viên (tên, email, điểm, thời gian) — chỉ người tạo quiz hoặc Admin xem được; lượt "xem thử" của giảng viên không bị ghi vào bảng điểm.
 
-**Gói dịch vụ (chỉ Sinh viên):**
-- Student → **Gói dịch vụ** → xem Free / Pro / Max → nâng cấp cho chính mình.
-- Admin → trang **Người dùng** → đổi gói cho tài khoản **sinh viên** (giảng viên/admin hiển thị *Không áp dụng*).
-- Giảng viên & Admin **không thấy** trang Gói dịch vụ và không bị giới hạn câu hỏi theo gói.
+**Quản trị người dùng (Admin):**
+- Admin đăng nhập → vào thẳng trang **Người dùng** (menu chỉ có mục này) → tạo tài khoản, đổi role, xóa người dùng, và duyệt **Yêu cầu chờ duyệt**.
+- Admin không có chat/quiz/phòng học/tài liệu trong giao diện.
 
 ---
 
@@ -798,7 +779,7 @@ python -m tests.evaluate --course-id 1
 ```bash
 cd backend
 python -m tests.smoke_all     # toàn bộ chức năng: auth, yêu cầu tài khoản,
-                              # users, môn học, tài liệu, chat, quiz, rooms, gói
+                              # users, môn học, tài liệu, chat, quiz, rooms
 python -m tests.smoke_rooms   # riêng flow phòng học + quiz + chat student-only
 ```
 
@@ -819,14 +800,13 @@ swd/
 │   │   └── modules/
 │   │       ├── auth/            # Đăng nhập, JWT
 │   │       ├── account_requests/ # Yêu cầu tài khoản (public) + Admin duyệt
-│   │       ├── users/           # Quản lý user, role, plan
+│   │       ├── users/           # Quản lý user + bảng roles (role tách entity)
 │   │       ├── courses/         # Môn học, chương
 │   │       ├── documents/       # Upload, ingest, parsers
-│   │       ├── chat/            # Chat RAG, sessions (chỉ Sinh viên + Admin)
+│   │       ├── chat/            # Chat RAG, sessions (chỉ Sinh viên)
 │   │       ├── rag/             # Embedder, VectorStore, Retriever, Facade
 │   │       ├── quizzes/         # Quiz, Question, QuizAttempt (bảng điểm cho Lecturer)
-│   │       ├── rooms/           # Phòng học: Room, RoomMember (Lecturer mời SV)
-│   │       └── subscriptions/   # Gói Free/Pro/Max
+│   │       └── rooms/           # Phòng học: Room, RoomMember (Lecturer mời SV)
 │   ├── seed.py                  # Seed 3 user + môn học + quiz mẫu
 │   ├── requirements.txt
 │   ├── .env.example
@@ -843,8 +823,7 @@ swd/
     │   │   ├── RoomsPage.tsx    # Danh sách phòng học + tạo phòng
     │   │   ├── RoomDetailPage.tsx # Thành viên + quiz + tài liệu trong phòng
     │   │   ├── QuizzesPage.tsx  # Tạo quiz (Lecturer) + làm bài (Student) + bảng điểm
-    │   │   ├── PricingPage.tsx  # Gói dịch vụ
-    │   │   └── AdminPage.tsx
+    │   │   └── AdminPage.tsx    # Quản lý người dùng + duyệt yêu cầu (chỉ Admin)
     │   ├── api/client.ts        # Axios + VITE_API_BASE (web & APK)
     │   └── auth/AuthContext.tsx
     ├── capacitor.config.ts      # Cấu hình Capacitor / Android

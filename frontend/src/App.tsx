@@ -6,7 +6,6 @@ import { AdminPage } from "./pages/AdminPage";
 import { ChatPage } from "./pages/ChatPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { LoginPage } from "./pages/LoginPage";
-import { PricingPage } from "./pages/PricingPage";
 import { QuizzesPage } from "./pages/QuizzesPage";
 import { RoomDetailPage } from "./pages/RoomDetailPage";
 import { RoomsPage } from "./pages/RoomsPage";
@@ -22,9 +21,11 @@ function Protected({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
-// Lecturer không dùng AI chat — trang chủ của họ là Phòng học.
+// Admin chỉ quản lý người dùng; Lecturer không dùng AI chat — mỗi vai trò có
+// trang chủ riêng. Chỉ Sinh viên vào thẳng trang Hỏi đáp.
 function Home() {
   const { user } = useAuth();
+  if (user?.role === "ADMIN") return <Navigate to="/admin" replace />;
   if (user?.role === "LECTURER") return <Navigate to="/rooms" replace />;
   return <ChatPage />;
 }
@@ -48,7 +49,6 @@ export default function App() {
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/:id" element={<RoomDetailPage />} />
         <Route path="quizzes" element={<QuizzesPage />} />
-        <Route path="pricing" element={<PricingPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

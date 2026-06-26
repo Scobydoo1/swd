@@ -1,7 +1,7 @@
 # REQUIREMENTS.md — Đặc tả yêu cầu hệ thống (SRS)
 
 **Dự án:** Maple — Course Document RAG Chatbot
-**Phiên bản:** 2.1 (cập nhật 26/06/2026 — tách Role thành entity riêng (bảng `roles`), email báo Admin khi có yêu cầu tài khoản mới; trước đó 2.0: Phòng học, Yêu cầu tài khoản, chat chỉ Sinh viên)
+**Phiên bản:** 2.2 (cập nhật 26/06/2026 — **bỏ gói dịch vụ/subscription**, Admin chỉ quản lý người dùng; trước đó 2.1: tách Role thành entity riêng (bảng `roles`), email báo Admin; 2.0: Phòng học, Yêu cầu tài khoản, chat chỉ Sinh viên)
 **Tài liệu liên quan:** [README.md](../README.md) · [DESIGN.md](DESIGN.md) · [diagram.md](diagram.md) · [schema.sql](schema.sql) · [CLAUDE.md](../CLAUDE.md)
 
 ---
@@ -12,14 +12,13 @@
 Web app chatbot hỏi đáp dựa trên tài liệu môn học (RAG — Retrieval Augmented Generation).
 Giảng viên upload tài liệu bài giảng (PDF, DOCX, slide); hệ thống tự động chunk + embed;
 sinh viên đặt câu hỏi và nhận câu trả lời **chỉ trong phạm vi tài liệu**, kèm trích dẫn nguồn.
-Hệ thống bổ sung quiz trắc nghiệm theo môn, phòng học để giảng viên giao bài cho sinh viên,
-và gói dịch vụ Free/Pro/Max.
+Hệ thống bổ sung quiz trắc nghiệm theo môn và phòng học để giảng viên giao bài cho sinh viên.
 
 ### 1.2. Phạm vi
 - **Trong phạm vi:** quản lý tài liệu + RAG pipeline, chat hỏi đáp có trích dẫn, quản lý
   môn học/chương, quiz + bảng điểm, phòng học, cấp tài khoản (Admin tạo / duyệt yêu cầu),
-  phân quyền 3 actor, gói dịch vụ, web + app Android (một codebase), bộ test 50 câu đánh giá.
-- **Ngoài phạm vi:** thanh toán thật cho gói dịch vụ, chỉnh sửa tài liệu trực tuyến,
+  phân quyền 3 actor, web + app Android (một codebase), bộ test 50 câu đánh giá.
+- **Ngoài phạm vi:** chỉnh sửa tài liệu trực tuyến,
   thông báo real-time (websocket), làm quiz có giới hạn thời gian, LMS đầy đủ.
 
 ### 1.3. Thuật ngữ
@@ -30,7 +29,6 @@ và gói dịch vụ Free/Pro/Max.
 | Citation | Trích dẫn nguồn (đoạn gốc, tên tài liệu, trang) kèm mỗi câu trả lời AI |
 | Attempt | Một lượt làm quiz của sinh viên (điểm + đáp án đã chọn) |
 | Room | Phòng học — không gian Lecturer mời sinh viên vào để giao quiz + tài liệu của một môn |
-| Plan | Gói dịch vụ FREE / PRO / MAX (chỉ áp dụng cho Sinh viên) |
 
 ### 1.4. Yêu cầu gốc (đề bài tối thiểu)
 Tài liệu môn học là các chapters trong textbook trên FLM: *Software Modeling and Design:
@@ -54,9 +52,9 @@ Các mục từ §3 trở đi là yêu cầu **mở rộng** đã được chố
 | Actor | Vai trò | Quyền chính |
 |-------|---------|-------------|
 | **Guest** (chưa đăng nhập) | Khách | Đăng nhập; gửi **Yêu cầu tài khoản** |
-| **User / Student** (Sinh viên) | Người dùng cuối | **Duy nhất actor cần AI chat**; xem tài liệu đã index; tham gia phòng học được mời; làm quiz & xem điểm ngay; quản lý phiên chat của mình; xem/nâng cấp gói dịch vụ |
-| **Lecturer** (Giảng viên) | Phụ trách nội dung môn | Upload/xóa tài liệu môn mình; tạo & quản lý môn học/chương; tạo quiz + xem bảng điểm SV; tạo phòng học & mời SV. **Không dùng AI chat**, không quản lý người dùng, không cần gói |
-| **Admin** | Quản trị | Toàn quyền: duyệt yêu cầu tài khoản, CRUD người dùng/role/plan, quản lý mọi tài liệu/môn/quiz/phòng, giám sát mọi phiên chat, cấu hình hệ thống |
+| **User / Student** (Sinh viên) | Người dùng cuối | **Duy nhất actor cần AI chat**; xem tài liệu đã index; tham gia phòng học được mời; làm quiz & xem điểm ngay; quản lý phiên chat của mình |
+| **Lecturer** (Giảng viên) | Phụ trách nội dung môn | Upload/xóa tài liệu môn mình; tạo & quản lý môn học/chương; tạo quiz + xem bảng điểm SV; tạo phòng học & mời SV. **Không dùng AI chat**, không quản lý người dùng |
+| **Admin** | Quản trị | **Chỉ quản lý người dùng** (CRUD người dùng/role) + duyệt yêu cầu tài khoản. Giao diện không có chat/quiz/phòng/tài liệu (backend vẫn giữ quyền giám sát nhưng UI ẩn). Cấu hình hệ thống qua env |
 
 Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 
@@ -104,7 +102,6 @@ Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 | FR-ADM-01 | Xem danh sách người dùng | Admin |
 | FR-ADM-02 | Tạo tài khoản Sinh viên/Giảng viên: mật khẩu tự sinh, gửi qua email (Brevo/SMTP); email lỗi → trả `temp_password` để gửi tay; không tạo được ADMIN qua API | Admin |
 | FR-ADM-03 | Đổi role người dùng (ADMIN/LECTURER/USER) | Admin |
-| FR-ADM-04 | Đổi gói (plan) — chỉ áp dụng cho tài khoản role USER, role khác → 400 | Admin |
 | FR-ADM-05 | Xóa người dùng: dọn dữ liệu cá nhân (phiên chat, messages, attempts, membership phòng); nội dung dùng chung (môn, tài liệu, quiz, phòng đã tạo) giữ lại và gỡ liên kết owner; không tự xóa chính mình (400) | Admin |
 | FR-ADM-06 | Cấu hình hệ thống qua env (model, API key, DB, CORS, admin seed…) — không hardcode secret | Admin |
 
@@ -158,14 +155,11 @@ Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 | FR-ROOM-04 | Mời sinh viên qua **email**: chỉ tài khoản role USER (mời GV/Admin → 400), không mời trùng (400); có endpoint danh sách sinh viên để chọn nhanh | Người tạo, Admin |
 | FR-ROOM-05 | Gỡ thành viên khỏi phòng; xóa phòng (thành viên xóa cascade) | Người tạo, Admin |
 
-### 3.9. Gói dịch vụ — FR-SUB
+### 3.9. Giới hạn chat (Rate-limit) — FR-RL
 
 | Mã | Yêu cầu | Quyền |
 |----|---------|-------|
-| FR-SUB-01 | Xem 3 gói **Free / Pro / Max** (giá, tính năng — định nghĩa tĩnh trong code) + đánh dấu gói hiện tại | Mọi người đã đăng nhập |
-| FR-SUB-02 | Sinh viên tự nâng cấp gói cho chính mình (demo, không thanh toán thật) | USER |
-| FR-SUB-03 | Rate-limit chat **theo gói, chỉ áp dụng Sinh viên**: Free 20 / Pro 60 / Max 120 câu mỗi phút (vượt → 429); Admin không giới hạn | — |
-| FR-SUB-04 | Giảng viên & Admin **không cần gói**: UI ẩn trang Gói dịch vụ; Admin đổi plan cho GV → 400 | — |
+| FR-RL-01 | Rate-limit chat **mức cố định, chỉ áp dụng Sinh viên**: ~30 câu/phút mỗi SV (vượt → 429). Giảng viên & Admin không bị giới hạn (không dùng AI chat trong UI) | — |
 
 ### 3.10. Giao diện & đa nền tảng — FR-UI
 
@@ -173,7 +167,7 @@ Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 |----|---------|
 | FR-UI-01 | Giao diện đẹp, bắt mắt (yêu cầu rõ của đề); theme sáng/tối; responsive (sidebar drawer trên mobile) |
 | FR-UI-02 | Song ngữ **VI/EN**, chuyển đổi ngay trong sidebar |
-| FR-UI-03 | Điều hướng theo role: Lecturer không thấy Hỏi đáp/Gói; Sinh viên không thấy Tài liệu/Người dùng; tab Người dùng + Yêu cầu chờ duyệt chỉ Admin |
+| FR-UI-03 | Điều hướng theo role: **Admin chỉ thấy mục Người dùng** (tab Người dùng + Yêu cầu chờ duyệt), không có chat/quiz/phòng/tài liệu; Lecturer không thấy Hỏi đáp; Sinh viên không thấy Tài liệu/Người dùng |
 | FR-UI-04 | Cùng codebase build ra **website** (Vite) và **app Android** (Capacitor APK); API base cấu hình qua `VITE_API_BASE` |
 
 ---
@@ -185,7 +179,7 @@ Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 | NFR-01 | Bảo mật | Mật khẩu hash **bcrypt**; không lưu/log plaintext, API key, token. JWT hạn ngắn cấu hình được |
 | NFR-02 | Bảo mật | Phân quyền **server-side** trên mọi endpoint (auth middleware + role guard + Pydantic validation + HTTP status phù hợp) — không tin client |
 | NFR-03 | Bảo mật | Upload validate MIME + extension; không expose stack trace trong response production |
-| NFR-04 | Chống lạm dụng | Rate-limit: chat theo gói (FR-SUB-03); form yêu cầu tài khoản 5/giờ/IP (FR-REQ-02) |
+| NFR-04 | Chống lạm dụng | Rate-limit: chat mức cố định cho SV (FR-RL-01, ~30 câu/phút); form yêu cầu tài khoản 5/giờ/IP (FR-REQ-02) |
 | NFR-05 | Độ tin cậy | Gọi Gemini có giới hạn retry — không retry vô hạn gây treo; lỗi ingest ghi vào `Document.error`, không crash app |
 | NFR-06 | Toàn vẹn dữ liệu | Xóa user/course/quiz/room phải dọn đúng thứ tự FK (con trước cha), không để orphan/vỡ ràng buộc; xóa tài liệu phải xóa cả vector |
 | NFR-07 | Tính đúng RAG | System prompt bắt buộc: chỉ trả lời từ context, không bịa, luôn dẫn nguồn |
@@ -201,13 +195,12 @@ Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 Mô hình đầy đủ (thuộc tính, quan hệ, quy tắc xóa) xem [diagram.md §2–3](diagram.md) và [schema.sql](schema.sql). Tóm tắt thực thể:
 
 - **Role** (entity riêng — bảng `roles`: code ADMIN/LECTURER/USER + name + description; seed cố định id 1/2/3) — User & AccountRequest tham chiếu qua khóa ngoại `role_id` / `requested_role_id`
-- **User** (role_id → Role, plan FREE/PRO/MAX) · **AccountRequest** (requested_role_id → Role, PENDING/APPROVED/REJECTED)
+- **User** (role_id → Role) · **AccountRequest** (requested_role_id → Role, PENDING/APPROVED/REJECTED)
 - **Course** → Chapter, Document, Quiz, Room
 - **Document** (PROCESSING/INDEXED/FAILED) — vector + chunk text nằm ở ChromaDB/pgvector, không lặp trong SQL
 - **ChatSession** → Message (citations_json)
 - **Quiz** → Question (ẩn correct_index khi trả đề) → QuizAttempt (chỉ SV)
 - **Room** → RoomMember (unique room_id + user_id)
-- Gói dịch vụ định nghĩa tĩnh trong `subscriptions/plans.py`, không lưu DB
 
 ---
 
@@ -219,7 +212,7 @@ Mô hình đầy đủ (thuộc tính, quan hệ, quy tắc xóa) xem [diagram.m
 | 2 | App Android | `npm run cap:apk` build được APK debug, gọi API qua LAN/emulator |
 | 3 | Source code GitHub | Repo có README hướng dẫn cài đặt/chạy/deploy đầy đủ; commit lịch sử rõ ràng |
 | 4 | Test set 50 câu + ground truth | `backend/tests/test_set.json`; chạy `python -m tests.evaluate --course-id 1` ra accuracy (LLM-as-judge), lưu `eval_result.json` |
-| 5 | Kiểm thử chức năng | `python -m tests.smoke_all` **56/56 PASS** (auth, yêu cầu tài khoản, users, môn, tài liệu, chat, quiz, phòng học, gói, xóa an toàn); `python -m tests.smoke_rooms` 16/16 PASS |
+| 5 | Kiểm thử chức năng | `python -m tests.smoke_all` **51/51 PASS** (auth, yêu cầu tài khoản, users, môn, tài liệu, chat, quiz, phòng học, xóa an toàn); `python -m tests.smoke_rooms` 16/16 PASS; `pytest` 24/24 PASS |
 | 6 | Tài liệu thiết kế | UML/Use Case/Patterns/Architecture: [DESIGN.md](DESIGN.md), [diagram.md](diagram.md), diagram Mermaid trong [README.md](../README.md) |
 
 ---
@@ -230,11 +223,11 @@ Mô hình đầy đủ (thuộc tính, quan hệ, quy tắc xóa) xem [diagram.m
 |----|----------------|---------|
 | FR-AUTH-01/02 | `POST /api/auth/login`, `/api/auth/google` | smoke_all [Health + Auth] |
 | FR-REQ-01..04 | `POST/GET /api/account-requests`, `/{id}/approve`, `/{id}/reject` | smoke_all [Yêu cầu tài khoản] |
-| FR-ADM-01..05 | `GET/POST /api/users`, `PATCH /{id}/role`, `/{id}/plan`, `DELETE /{id}` | smoke_all [Quản lý người dùng], [Xóa dữ liệu an toàn] |
+| FR-ADM-01..05 | `GET/POST /api/users`, `PATCH /{id}/role`, `DELETE /{id}` | smoke_all [Quản lý người dùng], [Xóa dữ liệu an toàn] |
 | FR-CRS-01..03 | `GET/POST /api/courses`, `/{id}/chapters`, `DELETE /{id}` | smoke_all [Môn học], [Xóa dữ liệu an toàn] |
 | FR-DOC-01..05 | `POST/GET /api/documents`, `DELETE /{id}` | smoke_all [Tài liệu]; evaluate.py (ingest thật) |
 | FR-CHAT-01..06 | `POST /api/chat`, `POST/GET/PATCH/DELETE /api/sessions*` | smoke_all [Chat] |
 | FR-QZ-01..06 | `POST/GET /api/quizzes*`, `/{id}/submit`, `/{id}/attempts` | smoke_all [Quiz] |
 | FR-ROOM-01..05 | `POST/GET/DELETE /api/rooms*`, `/students`, `/{id}/members*` | smoke_all [Phòng học]; smoke_rooms |
-| FR-SUB-01..04 | `GET /api/plans`, `POST /api/subscriptions`, `/me` | smoke_all [Gói dịch vụ] |
+| FR-RL-01 | `POST /api/chat` (giới hạn cố định cho SV) | rate_limit.py (STUDENT_CHAT_PER_MIN) |
 | FR-UI-01..04 | — (frontend) | `npm run build` (TS strict) + kiểm tra tay theo role |

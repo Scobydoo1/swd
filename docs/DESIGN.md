@@ -15,8 +15,9 @@ graph LR
     User([👤 User / Student])
 
     subgraph "Hệ thống RAG Chatbot"
-        UC1[Đăng nhập / Đăng ký]
+        UC1[Đăng nhập]
         UC2[Quản lý người dùng & phân quyền]
+        UC2b[Duyệt / từ chối yêu cầu tài khoản]
         UC3[Quản lý môn học / chương]
         UC4[Upload tài liệu PDF/DOCX/Slide]
         UC5[Xem danh sách tài liệu đã index]
@@ -24,8 +25,6 @@ graph LR
         UC7[Chat hỏi đáp theo ngữ cảnh]
         UC8[Xem trích dẫn nguồn]
         UC9[Quản lý phiên chat của mình]
-        UC10[Xem thống kê / lịch sử toàn hệ thống]
-        UC11[Cấu hình hệ thống]
         UC12[Tạo & quản lý Quiz theo môn]
         UC13[Làm Quiz & xem điểm]
         UC14[Xem bảng điểm sinh viên]
@@ -52,21 +51,11 @@ graph LR
 
     Admin --> UC1
     Admin --> UC2
-    Admin --> UC3
-    Admin --> UC4
-    Admin --> UC5
-    Admin --> UC6
-    Admin --> UC7
-    Admin --> UC9
-    Admin --> UC10
-    Admin --> UC11
-    Admin --> UC12
-    Admin --> UC14
-    Admin --> UC15
+    Admin --> UC2b
 ```
 
-> **Lưu ý:** AI chat (UC7) chỉ dành cho **Sinh viên** (Admin giữ quyền giám sát);
-> Giảng viên không dùng AI chat — trọng tâm của họ là tài liệu, quiz và phòng học.
+> **Lưu ý:** Admin **chỉ quản lý người dùng** + duyệt yêu cầu tài khoản (giao diện không có chat/quiz/phòng/tài liệu).
+> AI chat (UC7) chỉ dành cho **Sinh viên**; Giảng viên không dùng AI chat — trọng tâm của họ là tài liệu, quiz và phòng học.
 
 **Quan hệ `<<include>>` / `<<extend>>`:**
 
@@ -79,7 +68,7 @@ graph LR
     UC7 -. extend .-> UC7b[Trả lời 'Không có trong tài liệu']
 ```
 
-> **Phân quyền tóm tắt:** User = chat + làm quiz + phòng học được mời; Lecturer = quản lý tài liệu/môn học/quiz/phòng học của mình (không AI chat); Admin = toàn quyền + quản lý người dùng + cấu hình.
+> **Phân quyền tóm tắt:** User = chat + làm quiz + phòng học được mời; Lecturer = quản lý tài liệu/môn học/quiz/phòng học của mình (không AI chat); Admin = **chỉ quản lý người dùng + duyệt yêu cầu tài khoản** (backend vẫn giữ quyền giám sát, nhưng UI không hiển thị).
 
 ---
 
@@ -93,7 +82,6 @@ classDiagram
         +str password_hash
         +str full_name
         +int role_id
-        +Plan plan
         +datetime created_at
     }
     class Role {
@@ -101,12 +89,6 @@ classDiagram
         +str code
         +str name
         +str description
-    }
-    class Plan {
-        <<enumeration>>
-        FREE
-        PRO
-        MAX
     }
     class Course {
         +int id
@@ -238,7 +220,6 @@ classDiagram
     Quiz "1" --> "0..*" QuizAttempt
     Role "1" --> "0..*" User : assigned to
     Role "1" --> "0..*" AccountRequest : requested as
-    User --> Plan
     Document --> FileType
     Document --> Status
     AccountRequest --> RequestStatus
@@ -412,14 +393,13 @@ graph TB
             CHAT[chat]
             QUIZ[quizzes]
             ROOMS[rooms]
-            SUBS[subscriptions]
         end
 
         subgraph Shared["Shared Services"]
             RAG[rag: Embedder + Retriever + VectorStore Facade]
             LLMW[llm: Google Gemini client]
             MAILER[shared/mailer: Brevo / SMTP]
-            RATELIMIT[shared/rate_limit: plan + IP limiter]
+            RATELIMIT[shared/rate_limit: giới hạn SV + IP limiter]
         end
     end
 
@@ -433,7 +413,7 @@ graph TB
     end
 
     Client -->|REST /api| API
-    API --> AUTH & ACCRQ & USERS & DOCS & COURSES & CHAT & QUIZ & ROOMS & SUBS
+    API --> AUTH & ACCRQ & USERS & DOCS & COURSES & CHAT & QUIZ & ROOMS
     DOCS --> RAG
     CHAT --> RAG
     CHAT --> LLMW
@@ -449,7 +429,6 @@ graph TB
     CHAT --> SQLITE
     QUIZ --> SQLITE
     ROOMS --> SQLITE
-    SUBS --> SQLITE
     ACCRQ --> SQLITE
     RAG --> CHROMA
     RAG --> GEMINI
@@ -535,7 +514,6 @@ erDiagram
         string password_hash
         string full_name
         int role_id FK
-        enum plan "FREE|PRO|MAX"
         datetime created_at
     }
     COURSE {
@@ -687,12 +665,11 @@ graph TD
         CHAT[chat]
         QUIZZES[quizzes]
         ROOMS[rooms]
-        SUBS[subscriptions]
         RAG[rag]
     end
     LLM[app.llm<br/>Gemini client]
 
-    MAIN --> AUTH & ACCRQ & USERS & COURSES & DOCUMENTS & CHAT & QUIZZES & ROOMS & SUBS
+    MAIN --> AUTH & ACCRQ & USERS & COURSES & DOCUMENTS & CHAT & QUIZZES & ROOMS
     MAIN --> CONFIG
     AUTH --> USERS
     AUTH --> SHARED
@@ -713,8 +690,6 @@ graph TD
     ROOMS --> QUIZZES
     ROOMS --> DOCUMENTS
     ROOMS --> SHARED
-    SUBS --> DB
-    SUBS --> USERS
     RAG --> LLM
     RAG --> CONFIG
     LLM --> CONFIG

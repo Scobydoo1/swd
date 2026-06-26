@@ -3,9 +3,9 @@
 Chạy: python -m tests.smoke_all
 
 Bao phủ: health, auth, yêu cầu tài khoản (form public + admin duyệt/từ chối),
-quản lý người dùng (tạo/role/plan/xóa), môn học/chương, tài liệu (validate định
+quản lý người dùng (tạo/role/xóa), môn học/chương, tài liệu (validate định
 dạng), chat + phiên (chỉ SV/Admin), quiz (tạo/làm/chấm/bảng điểm), phòng học
-(tạo/mời/chi tiết/quyền), gói dịch vụ (plans/subscribe).
+(tạo/mời/chi tiết/quyền).
 """
 import os
 import sys
@@ -139,15 +139,6 @@ def run() -> None:  # noqa: PLR0915
         all_users = {u["email"]: u for u in r.json()}
         check(len(all_users) == 4, "Admin thấy đủ 4 người dùng")
         sv2_id = all_users["sv2@smokemail.com"]["id"]
-        r = client.patch(
-            f"/api/users/{sv2_id}/plan", json={"plan": "PRO"}, headers=admin
-        )
-        check(r.json()["plan"] == "PRO", "Admin đổi gói SV -> PRO")
-        lec_id = all_users["lec@smokemail.com"]["id"]
-        r = client.patch(
-            f"/api/users/{lec_id}/plan", json={"plan": "PRO"}, headers=admin
-        )
-        check(r.status_code == 400, "Giảng viên không có gói (400)")
 
         # ---------- Môn học / chương (FR-LEC-02) ----------
         print("\n[Môn học]")
@@ -300,19 +291,6 @@ def run() -> None:  # noqa: PLR0915
         sv1_id = detail["members"][0]["user_id"]
         r = client.delete(f"/api/rooms/{room_id}/members/{sv1_id}", headers=lec)
         check(r.status_code == 204, "Gỡ SV khỏi phòng")
-
-        # ---------- Gói dịch vụ (FR-SUB) ----------
-        print("\n[Gói dịch vụ]")
-        r = client.get("/api/plans", headers=sv1)
-        plans = r.json()
-        check(
-            len(plans) == 3 and any(p["current"] for p in plans),
-            "3 gói Free/Pro/Max + gói hiện tại",
-        )
-        r = client.post("/api/subscriptions", json={"plan_id": "MAX"}, headers=sv1)
-        check(r.json()["plan"] == "MAX", "SV tự nâng cấp gói MAX")
-        r = client.get("/api/subscriptions/me", headers=sv1)
-        check(r.json()["plan"] == "MAX", "Xem gói hiện tại của mình")
 
         # ---------- Dọn dẹp: xóa user / course / room không vỡ FK ----------
         print("\n[Xóa dữ liệu an toàn]")

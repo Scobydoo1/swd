@@ -4,13 +4,7 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useLang } from "../i18n/LanguageContext";
 import { IconCheck, IconClose, IconSidebar, IconTrash } from "../components/Icons";
-import type {
-  AccountRequest,
-  ApproveResult,
-  Plan,
-  Role,
-  User,
-} from "../types";
+import type { AccountRequest, ApproveResult, Role, User } from "../types";
 
 const roleBadge: Record<Role, string> = {
   ADMIN: "bg-danger/15 text-danger",
@@ -123,11 +117,6 @@ export function AdminPage() {
 
   const changeRole = async (id: number, role: Role) => {
     await api.patch(`/users/${id}/role`, { role });
-    load();
-  };
-
-  const changePlan = async (id: number, plan: Plan) => {
-    await api.patch(`/users/${id}/plan`, { plan });
     load();
   };
 
@@ -297,17 +286,16 @@ export function AdminPage() {
 
         <div className="overflow-hidden rounded-[20px] border border-line bg-surface">
           <div className="grid grid-cols-12 gap-3 border-b border-line bg-surface-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-faint sm:px-5">
-            <div className="col-span-12 sm:col-span-4">{t("admin.colUser")}</div>
-            <div className="hidden sm:col-span-3 sm:block">{t("admin.colRole")}</div>
-            <div className="hidden sm:col-span-3 sm:block">{t("admin.colPlan")}</div>
-            <div className="hidden text-right sm:col-span-2 sm:block">{t("admin.colActions")}</div>
+            <div className="col-span-12 sm:col-span-5">{t("admin.colUser")}</div>
+            <div className="hidden sm:col-span-4 sm:block">{t("admin.colRole")}</div>
+            <div className="hidden text-right sm:col-span-3 sm:block">{t("admin.colActions")}</div>
           </div>
           {users.map((u) => (
             <div
               key={u.id}
               className="grid grid-cols-12 items-center gap-3 border-b border-line-soft px-4 py-3.5 transition last:border-0 hover:bg-surface-2/50 sm:px-5"
             >
-              <div className="col-span-12 flex items-center gap-3 sm:col-span-4">
+              <div className="col-span-12 flex items-center gap-3 sm:col-span-5">
                 <div className="avatar avatar-user sm">
                   {u.full_name.charAt(0)}
                 </div>
@@ -323,7 +311,7 @@ export function AdminPage() {
                   {t(`role.${u.role}`)}
                 </span>
               </div>
-              <div className="col-span-6 sm:col-span-3">
+              <div className="col-span-10 sm:col-span-4">
                 <select
                   value={u.role}
                   onChange={(e) => changeRole(u.id, e.target.value as Role)}
@@ -334,24 +322,7 @@ export function AdminPage() {
                   <option value="ADMIN">{t("role.ADMIN")}</option>
                 </select>
               </div>
-              <div className="col-span-5 sm:col-span-3">
-                {u.role === "USER" ? (
-                  <select
-                    value={u.plan}
-                    onChange={(e) => changePlan(u.id, e.target.value as Plan)}
-                    className="w-full rounded-xl border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
-                  >
-                    <option value="FREE">Free</option>
-                    <option value="PRO">Pro</option>
-                    <option value="MAX">Max</option>
-                  </select>
-                ) : (
-                  <span className="block px-1 py-1.5 text-sm text-ink-faint">
-                    {t("admin.notApplicable")}
-                  </span>
-                )}
-              </div>
-              <div className="col-span-1 flex justify-end sm:col-span-2">
+              <div className="col-span-2 flex justify-end sm:col-span-3">
                 {u.id !== me?.id && (
                   <button
                     onClick={() => removeUser(u)}

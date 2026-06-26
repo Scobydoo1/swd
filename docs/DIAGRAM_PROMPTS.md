@@ -27,16 +27,16 @@ Vector store: ChromaDB (cục bộ). Metadata DB: SQLite qua SQLAlchemy.
 RAG framework: LangChain. Auth: JWT, RBAC.
 
 3 ACTOR (phân quyền qua bảng Role riêng):
-- ADMIN: toàn quyền — quản lý người dùng, duyệt yêu cầu tài khoản, quản lý mọi
-  tài liệu/môn học/phòng, giám sát mọi phiên chat.
+- ADMIN: CHỈ quản lý người dùng (CRUD user + đổi role) + duyệt yêu cầu tài khoản.
+  Giao diện không có chat/quiz/phòng/tài liệu (backend vẫn giám sát được nhưng UI ẩn).
 - LECTURER (Giảng viên): upload/xóa tài liệu môn mình, tạo môn học/chương,
   tạo quiz + xem bảng điểm, tạo phòng học + mời sinh viên. KHÔNG dùng AI chat.
 - USER (Sinh viên): chat RAG, xem tài liệu, làm quiz, tham gia phòng được mời,
-  quản lý phiên chat của mình, tự nâng gói. KHÔNG upload/quản trị.
+  quản lý phiên chat của mình. KHÔNG upload/quản trị.
 
-9 MODULE backend: auth, account_requests, users, courses, documents, chat,
-rag (core dùng chung: embedder + vector_store + retriever), quizzes, rooms,
-subscriptions.
+8 MODULE backend: auth, account_requests, users (kèm bảng roles), courses,
+documents, chat, rag (core dùng chung: embedder + vector_store + retriever),
+quizzes, rooms. (Đã bỏ subscription/gói dịch vụ.)
 ```
 
 ---
@@ -62,11 +62,11 @@ Bố cục 5 tầng từ trên xuống:
    - CORS middleware
    - JWT Auth middleware
    - Role Guard: require_role(...) đọc từ bảng Role
-   - Mount 9 router
+   - Mount 8 router
 
 3) MODULE LAYER (mỗi module: Router -> Service -> Repository):
    auth | account_requests | users | courses | documents | chat |
-   quizzes | rooms | subscriptions
+   quizzes | rooms
    Vẽ kèm 2 shared component dùng chung:
    - rag (Facade): embedder + vector_store + retriever
    - llm: Google Gemini client wrapper (chat + embedding), có chế độ local fallback
@@ -108,7 +108,6 @@ USER (Sinh viên):
 - Xem danh sách tài liệu đã index
 - Làm quiz, xem điểm
 - Tham gia phòng học được mời
-- Xem & nâng cấp gói dịch vụ (Free/Pro/Max)
 
 LECTURER (Giảng viên):
 - Upload / xóa tài liệu (PDF, DOCX, PPTX) -> ingest RAG
@@ -118,19 +117,16 @@ LECTURER (Giảng viên):
 - Tạo phòng học, mời/gỡ sinh viên, xóa phòng
 - (KHÔNG dùng AI chat -> không có use case Chat)
 
-ADMIN (bao toàn quyền của Lecturer +):
-- CRUD người dùng, đổi role, đổi gói
+ADMIN (CHỈ quản lý người dùng — giao diện không có chat/quiz/phòng/tài liệu):
+- CRUD người dùng, đổi role
 - Duyệt / từ chối Yêu cầu tài khoản
-- Quản lý MỌI tài liệu/môn học/phòng (không giới hạn ownership)
-- Giám sát mọi phiên chat của mọi người dùng
 - Cấu hình hệ thống (qua env)
 
 Quan hệ:
-- Admin generalize (kế thừa) các use case của Lecturer nơi phù hợp.
 - "Chat hỏi đáp RAG" <<include>> "Xem trích dẫn nguồn".
 - "Duyệt yêu cầu tài khoản" <<include>> "Tạo tài khoản + gửi email".
 - "Upload tài liệu" <<include>> "Ingest RAG (chunk + embed)".
-Ghi chú rate-limit chat theo gói chỉ áp cho Sinh viên.
+Ghi chú rate-limit chat mức cố định (~30 câu/phút) chỉ áp cho Sinh viên.
 ```
 
 **Công cụ:** PlantUML (`@startuml ... actor ... usecase`), draw.io.
@@ -206,7 +202,7 @@ chuyển về /login.
 ### 3.5 Admin Governance Flow (Quản trị)
 ```
 Vẽ Activity Diagram "Admin quản trị người dùng" cho [BỐI CẢNH CHUNG]:
-Admin chọn user -> đổi role_id / đổi plan / xóa user -> Service kiểm quyền
+Admin chọn user -> đổi role_id / xóa user -> Service kiểm quyền
 require_role(ADMIN) -> cập nhật DB (xóa user phải xóa FK-safe: messages,
 sessions trước) -> trả kết quả cập nhật. (Tùy chọn mở rộng: ghi Audit Log —
 hiện CHƯA implement, đánh dấu là "future".)
@@ -280,7 +276,6 @@ User:
   + password_hash: str
   + full_name: str
   + role_id: int -> Role
-  + plan: Plan       // FREE | PRO | MAX (gói định nghĩa tĩnh, không bảng riêng)
   + created_at: datetime
 
 Course: id, name, description, owner_id -> User
@@ -305,7 +300,7 @@ Quan hệ:
 - Association: User "1" -- "N" Role(role_id); các FK còn lại là association
   thường (nullable -> 0..1).
 Hiển thị enum Role bị thay bằng class Role (bảng roles). Kèm các Enum:
-Plan, FileType, Status, MsgRole, RequestStatus.
+FileType, Status, MsgRole, RequestStatus.
 
 (Tùy chọn) Thêm các lớp tầng service theo pattern Layered:
 <Module>Router -> <Module>Service -> <Module>Repository, và Facade RagService
@@ -340,7 +335,6 @@ users
   password_hash VARCHAR(255) NOT NULL
   full_name     VARCHAR(255) NOT NULL
   role_id       INTEGER FK -> roles(id) NOT NULL
-  plan          VARCHAR(10) NOT NULL DEFAULT 'FREE'   -- FREE|PRO|MAX (tĩnh)
   created_at    DATETIME
 
 courses

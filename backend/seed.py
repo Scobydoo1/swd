@@ -18,13 +18,12 @@ from app.modules.auth.security import hash_password
 from app.modules.courses.models import Chapter, Course
 from app.modules.quizzes.models import Question, Quiz
 from app.modules.rooms.models import Room, RoomMember
-from app.modules.users.models import Plan, Role, User
+from app.modules.users.models import Role, User
 
-# Chỉ Sinh viên có gói dịch vụ; Giảng viên & Admin được miễn (plan FREE bị bỏ qua).
 DEMO_USERS = [
-    ("admin@demo.com", "admin123", "Quản trị viên", Role.ADMIN, Plan.FREE),
-    ("lecturer@demo.com", "lecturer123", "Giảng viên Demo", Role.LECTURER, Plan.FREE),
-    ("student@demo.com", "student123", "Sinh viên Demo", Role.USER, Plan.FREE),
+    ("admin@demo.com", "admin123", "Quản trị viên", Role.ADMIN),
+    ("lecturer@demo.com", "lecturer123", "Giảng viên Demo", Role.LECTURER),
+    ("student@demo.com", "student123", "Sinh viên Demo", Role.USER),
 ]
 
 DEMO_QUIZ = {
@@ -76,7 +75,7 @@ def run():
     init_db()
     db = SessionLocal()
     try:
-        for email, pwd, name, role, plan in DEMO_USERS:
+        for email, pwd, name, role in DEMO_USERS:
             existing = db.query(User).filter(User.email == email).first()
             if not existing:
                 db.add(
@@ -85,12 +84,8 @@ def run():
                         password_hash=hash_password(pwd),
                         full_name=name,
                         role=role,
-                        plan=plan,
                     )
                 )
-            else:
-                # Tài khoản demo là fixture: luôn đặt lại gói mặc định cho rõ ràng.
-                existing.plan = plan
         db.commit()
 
         lecturer = db.query(User).filter(User.email == "lecturer@demo.com").first()
@@ -153,8 +148,8 @@ def run():
             print(f"Đã tạo phòng học demo (id={room.id}) + mời sinh viên demo.")
 
         print("Seed xong. Tài khoản demo:")
-        for email, pwd, _, role, plan in DEMO_USERS:
-            print(f"  {role.value:9} | {plan.value:4} | {email} | {pwd}")
+        for email, pwd, _, role in DEMO_USERS:
+            print(f"  {role.value:9} | {email} | {pwd}")
     finally:
         db.close()
 

@@ -36,10 +36,10 @@ CREATE UNIQUE INDEX ix_roles_code ON roles (code);
 INSERT INTO roles (id, code, name, description) VALUES
     (1, 'ADMIN',    'Quản trị viên', 'Toàn quyền: người dùng, tài liệu, môn học, phòng học, giám sát'),
     (2, 'LECTURER', 'Giảng viên',    'Tài liệu, môn học/chương, quiz, phòng học của mình'),
-    (3, 'USER',     'Sinh viên',     'Chat hỏi đáp RAG, làm quiz, tham gia phòng học, gói dịch vụ');
+    (3, 'USER',     'Sinh viên',     'Chat hỏi đáp RAG, làm quiz, tham gia phòng học');
 
 -- ---------------------------------------------------------------------
--- USERS — tài khoản; role tham chiếu roles qua role_id (FK), plan = gói dịch vụ
+-- USERS — tài khoản; role tham chiếu roles qua role_id (FK)
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
     id              INTEGER  NOT NULL PRIMARY KEY,
@@ -47,8 +47,6 @@ CREATE TABLE users (
     password_hash   VARCHAR  NOT NULL,            -- bcrypt, không lưu plaintext
     full_name       VARCHAR  NOT NULL,
     role_id         INTEGER  NOT NULL DEFAULT 3,  -- → roles.id (mặc định USER)
-    plan            VARCHAR  NOT NULL DEFAULT 'FREE'
-                    CHECK (plan IN ('FREE', 'PRO', 'MAX')),
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (role_id) REFERENCES roles (id)
 );

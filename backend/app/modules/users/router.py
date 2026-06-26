@@ -5,7 +5,6 @@ from app.database import get_db
 from app.modules.users.models import Role
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import (
-    PlanUpdate,
     RoleUpdate,
     UserCreate,
     UserCreateResult,
@@ -50,27 +49,6 @@ def update_role(
     if not user:
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
     return repo.update_role(user, payload.role)
-
-
-# FR-ADM-03: Admin đổi gói đăng ký của người dùng (Lecturer/Student).
-@router.patch("/{user_id}/plan", response_model=UserOut)
-def update_plan(
-    user_id: int,
-    payload: PlanUpdate,
-    db: Session = Depends(get_db),
-    _=Depends(require_role(Role.ADMIN)),
-):
-    repo = UserRepository(db)
-    user = repo.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-    # Gói dịch vụ chỉ áp dụng cho Sinh viên; Giảng viên & Admin được miễn.
-    if user.role != Role.USER:
-        raise HTTPException(
-            status_code=400,
-            detail="Chỉ tài khoản sinh viên mới có gói dịch vụ.",
-        )
-    return repo.update_plan(user, payload.plan)
 
 
 # FR-ADM-01: Admin xóa người dùng (kèm dọn phiên chat & lượt làm quiz của họ).

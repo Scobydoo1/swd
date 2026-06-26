@@ -1,24 +1,11 @@
 export type Role = "ADMIN" | "LECTURER" | "USER";
-export type Plan = "FREE" | "PRO" | "MAX";
 
 export interface User {
   id: number;
   email: string;
   full_name: string;
   role: Role;
-  plan: Plan;
   created_at: string;
-}
-
-export interface PlanOption {
-  id: Plan;
-  name: string;
-  price: number;
-  price_label: string;
-  tagline: string;
-  features: string[];
-  highlight: boolean;
-  current: boolean;
 }
 
 export interface QuizListItem {

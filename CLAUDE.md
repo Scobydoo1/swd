@@ -23,11 +23,11 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 
 | Actor | Vai trò | Quyền |
 |-------|---------|-------|
-| **Admin** | Quản trị hệ thống | Toàn quyền: quản lý người dùng, quản lý môn học/chương, quản lý **mọi** tài liệu & phòng học, xem toàn bộ phiên chat, cấu hình hệ thống |
+| **Admin** | Quản trị hệ thống | **Chỉ quản lý người dùng** (CRUD người dùng + đổi role) và **duyệt yêu cầu tài khoản**; cấu hình hệ thống qua env. Giao diện Admin **không** có chat/quiz/phòng/tài liệu (backend vẫn giữ quyền giám sát nhưng UI ẩn) |
 | **Lecturer** (Giảng viên) | Người phụ trách nội dung môn học | Upload / xem / xóa tài liệu của môn mình phụ trách, tạo & quản lý môn học/chương, tạo quiz + xem bảng điểm SV, tạo **phòng học** & mời sinh viên; **không** quản lý người dùng, **không dùng AI chat** |
 | **User** (Sinh viên) | Người dùng cuối | Chat hỏi đáp (chỉ role này cần AI chat), xem tài liệu đã index, tham gia phòng học được mời, làm quiz & xem điểm, xem & quản lý phiên chat **của chính mình**; **không** upload/xóa tài liệu, không quản trị |
 
-**Phân quyền theo endpoint** thực thi qua dependency `require_role(...)` trong `shared/dependencies.py`. Mỗi `User` model có trường `role ∈ {ADMIN, LECTURER, USER}`.
+**Phân quyền theo endpoint** thực thi qua dependency `require_role(...)` trong `shared/dependencies.py`. Role là **entity riêng** (bảng `roles`); `User` tham chiếu qua `role_id` và enum `Role ∈ {ADMIN, LECTURER, USER}` (mã vai trò) dùng cho `require_role`.
 
 ---
 
@@ -49,9 +49,10 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 #### Admin (FR-ADM)
 - `FR-ADM-01` — CRUD người dùng, đổi role (ADMIN / LECTURER / USER)
 - `FR-ADM-02` — Quản lý mọi tài liệu và môn học (không giới hạn ownership)
-- `FR-ADM-03` — Xem toàn bộ phiên chat của mọi người dùng
+- `FR-ADM-03` — Xem toàn bộ phiên chat của mọi người dùng (backend hỗ trợ; UI hiện không hiển thị)
 - `FR-ADM-04` — Cấu hình hệ thống qua env (model name, API key, paths)
-- `FR-ADM-05` — Đổi gói dịch vụ (plan) của người dùng: `PATCH /users/{id}/plan`
+
+> **Lưu ý phạm vi Admin:** giao diện Admin **chỉ có mục Quản lý người dùng** (CRUD user + đổi role + duyệt yêu cầu tài khoản). Không có chat/quiz/phòng/tài liệu trong UI.
 
 #### Yêu cầu tài khoản (FR-REQ)
 - `FR-REQ-01` — Form **public** ở trang đăng nhập: họ tên + email + vai trò mong muốn (USER/LECTURER, không xin được ADMIN) + lời nhắn → lưu `AccountRequest` (PENDING). Chống spam: rate-limit 5 yêu cầu/giờ/IP; chặn email đã có tài khoản hoặc đã có yêu cầu PENDING
@@ -70,10 +71,8 @@ Hệ thống có **3 actor** với quyền khác nhau (role-based access, JWT):
 - `FR-ROOM-03` — Chi tiết phòng tổng hợp: thành viên + quiz + tài liệu (slide/doc) của môn — sinh viên trong phòng làm quiz và xem tài liệu học tập tại đây
 - `FR-ROOM-04` — Người tạo phòng / Admin mời sinh viên qua email (chỉ tài khoản role USER), gỡ thành viên, xóa phòng
 
-#### Subscription / Gói dịch vụ (FR-SUB)
-- `FR-SUB-01` — Xem 3 gói **Free / Pro / Max** (giá, tính năng), đánh dấu gói hiện tại: `GET /plans`
-- `FR-SUB-02` — **Chỉ Sinh viên (USER)** tự nâng cấp gói cho chính mình: `POST /subscriptions` (`plan_id`). Giảng viên & Admin **không cần** gói → endpoint trả `403`.
-- `FR-SUB-03` — Rate-limit chat **theo gói, chỉ áp dụng cho Sinh viên** (Free 20 / Pro 60 / Max 120 câu mỗi phút). Giảng viên & Admin dùng không giới hạn.
+#### Giới hạn chat (FR-RL)
+- `FR-RL-01` — Rate-limit chat **mức cố định, chỉ áp dụng cho Sinh viên** (`STUDENT_CHAT_PER_MIN` ≈ 30 câu/phút). Giảng viên & Admin không bị giới hạn (không dùng AI chat trong UI). *(Đã bỏ subscription/gói dịch vụ Free/Pro/Max.)*
 
 ### B. Deliverables
 - Web app chatbot.
@@ -169,17 +168,11 @@ backend/
 │   │   │   ├── models.py        # Quiz, Question, QuizAttempt
 │   │   │   └── schemas.py
 │   │   │
-│   │   ├── rooms/               # MODULE: Phòng học (Lecturer/Admin tạo, mời SV)
-│   │   │   ├── router.py        # POST/GET /rooms, /{id}/members, /students
-│   │   │   ├── service.py       # Quyền theo vai trò; tổng hợp quiz + tài liệu của môn
-│   │   │   ├── repository.py
-│   │   │   ├── models.py        # Room, RoomMember
-│   │   │   └── schemas.py
-│   │   │
-│   │   └── subscriptions/       # MODULE: Gói dịch vụ Free/Pro/Max
-│   │       ├── router.py        # GET /plans, POST /subscriptions, /subscriptions/me
-│   │       ├── service.py
-│   │       ├── plans.py         # Định nghĩa tĩnh 3 gói (giá, tính năng)
+│   │   └── rooms/               # MODULE: Phòng học (Lecturer/Admin tạo, mời SV)
+│   │       ├── router.py        # POST/GET /rooms, /{id}/members, /students
+│   │       ├── service.py       # Quyền theo vai trò; tổng hợp quiz + tài liệu của môn
+│   │       ├── repository.py
+│   │       ├── models.py        # Room, RoomMember
 │   │       └── schemas.py
 │   │
 │   └── llm/                     # Google Gemini client wrapper (chat + embedding)
@@ -266,7 +259,6 @@ frontend/
 | GET | `/api/sessions` | Danh sách phiên chat (của mình) | All |
 | GET | `/api/sessions/{id}` | Lịch sử messages của phiên | Owner, Admin |
 | POST | `/api/sessions` | Tạo phiên mới | Student, Admin |
-| PATCH | `/api/users/{id}/plan` | Đổi gói dịch vụ người dùng | Admin |
 | GET | `/api/quizzes` | Danh sách quiz | All |
 | POST | `/api/quizzes` | Tạo quiz | Lecturer, Admin |
 | GET | `/api/quizzes/{id}` | Lấy đề (ẩn đáp án đúng) | All |
@@ -280,16 +272,13 @@ frontend/
 | POST | `/api/rooms/{id}/members` | Mời SV vào phòng (email) | Người tạo, Admin |
 | DELETE | `/api/rooms/{id}/members/{user_id}` | Gỡ SV khỏi phòng | Người tạo, Admin |
 | DELETE | `/api/rooms/{id}` | Xóa phòng | Người tạo, Admin |
-| GET | `/api/plans` | 3 gói Free/Pro/Max + gói hiện tại | All |
-| POST | `/api/subscriptions` | Nâng cấp gói cho chính mình | All |
-| GET | `/api/subscriptions/me` | Gói hiện tại của mình | All |
 
 ---
 
 ## 7. Data Model (SQLite)
 
 - **Role** (id, code[ADMIN|LECTURER|USER] unique, name, description) — entity riêng (bảng `roles`), seed cố định id 1/2/3; enum `Role` trong code chỉ là mã vai trò cho `require_role`
-- **User** (id, email, password_hash, full_name, role_id → Role, **plan[FREE|PRO|MAX]**, created_at)
+- **User** (id, email, password_hash, full_name, role_id → Role, created_at)
 - **Course** (id, name, description, owner_id → User[Lecturer])
 - **Chapter** (id, course_id, title, order)
 - **Document** (id, course_id, chapter_id?, uploaded_by → User, filename, file_type, status, num_chunks, created_at)
@@ -303,7 +292,6 @@ frontend/
 - **AccountRequest** (id, email, full_name, requested_role_id → Role[LECTURER|USER], message, status[PENDING|APPROVED|REJECTED], created_at, decided_at?)
 
 Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để gọn).
-Gói dịch vụ (Free/Pro/Max + giá + tính năng) định nghĩa tĩnh trong `subscriptions/plans.py`, không lưu DB.
 
 ---
 

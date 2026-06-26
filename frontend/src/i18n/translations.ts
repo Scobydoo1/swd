@@ -147,9 +147,7 @@ const vi: Dict = {
   "admin.subtitle": "Xem danh sách và phân quyền cho người dùng trong hệ thống.",
   "admin.colUser": "Người dùng",
   "admin.colRole": "Vai trò",
-  "admin.colPlan": "Gói đăng ký",
   "admin.colActions": "Thao tác",
-  "admin.notApplicable": "Không áp dụng",
   "admin.deleteUser": "Xóa người dùng",
   "admin.deleteUserConfirm":
     'Xóa người dùng "{name}"? Phiên chat và lượt làm quiz của họ sẽ bị xóa.',
@@ -176,18 +174,6 @@ const vi: Dict = {
     "Đã duyệt nhưng gửi email thất bại. Mật khẩu tạm: {password} — hãy gửi cho người dùng.",
   "admin.rejected": "Đã từ chối yêu cầu của {email}.",
   "admin.rejectConfirm": 'Từ chối yêu cầu của "{name}" ({email})?',
-
-  // pricing
-  "pricing.noNeedTitle": "Tài khoản của bạn không cần gói dịch vụ",
-  "pricing.noNeedBody":
-    "Gói Free / Pro / Max chỉ dành cho sinh viên. Giảng viên và quản trị viên được sử dụng đầy đủ tính năng mà không cần đăng ký.",
-  "pricing.title": "Gói dịch vụ",
-  "pricing.subtitle": "Chọn gói phù hợp. Gói hiện tại của bạn:",
-  "pricing.popular": "Phổ biến",
-  "pricing.current": "Gói hiện tại",
-  "pricing.processing": "Đang xử lý…",
-  "pricing.useFree": "Dùng miễn phí",
-  "pricing.upgrade": "Nâng cấp",
 
   // quizzes
   "quiz.subtitleManage": "Tạo và quản lý quiz cho sinh viên.",
@@ -271,7 +257,6 @@ const en: Dict = {
   "nav.documents": "Documents",
   "nav.rooms": "Rooms",
   "nav.quiz": "Quiz",
-  "nav.pricing": "Plans",
   "nav.users": "Users",
   "nav.newChat": "New chat",
   "nav.searchChat": "Search chats",
@@ -390,9 +375,7 @@ const en: Dict = {
   "admin.subtitle": "View users and manage their roles in the system.",
   "admin.colUser": "User",
   "admin.colRole": "Role",
-  "admin.colPlan": "Subscription",
   "admin.colActions": "Actions",
-  "admin.notApplicable": "N/A",
   "admin.deleteUser": "Delete user",
   "admin.deleteUserConfirm":
     'Delete user "{name}"? Their chat sessions and quiz attempts will be removed.',
@@ -419,18 +402,6 @@ const en: Dict = {
     "Approved but the email failed to send. Temp password: {password} — share it with the user.",
   "admin.rejected": "Rejected the request from {email}.",
   "admin.rejectConfirm": 'Reject the request from "{name}" ({email})?',
-
-  // pricing
-  "pricing.noNeedTitle": "Your account doesn't need a plan",
-  "pricing.noNeedBody":
-    "Free / Pro / Max plans are for students only. Lecturers and administrators get full features without subscribing.",
-  "pricing.title": "Plans",
-  "pricing.subtitle": "Choose the plan that fits. Your current plan:",
-  "pricing.popular": "Popular",
-  "pricing.current": "Current plan",
-  "pricing.processing": "Processing…",
-  "pricing.useFree": "Use for free",
-  "pricing.upgrade": "Upgrade",
 
   // quizzes
   "quiz.subtitleManage": "Create and manage quizzes for students.",
