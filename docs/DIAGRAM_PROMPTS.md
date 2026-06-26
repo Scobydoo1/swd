@@ -406,9 +406,10 @@ ngoài, nối tới documents bằng đường nét đứt (logical link, không
 
 **Công cụ:** Mermaid `erDiagram` (có kiểu cột), dbdiagram.io (cú pháp DBML), draw.io.
 
-> 💡 Lưu ý đồng bộ code: hiện tại code để `role` là **enum cột trong `users`**.
-> Sơ đồ này mô tả thiết kế **chuẩn hóa Role thành bảng riêng** theo yêu cầu.
-> Nếu muốn code khớp sơ đồ, cần thêm model `Role` + migration `role_id`.
+> ✅ Đã đồng bộ với code: backend có model `RoleModel` (bảng `roles`, seed cố định
+> id 1/2/3), `users.role_id` và `account_requests.requested_role_id` là FK trỏ tới
+> `roles`. Enum `Role` trong code chỉ còn là "mã vai trò" cho `require_role(...)`,
+> ánh xạ qua `ROLE_IDS`. Sơ đồ ở file này khớp 1-1 với DB hiện tại.
 
 ---
 

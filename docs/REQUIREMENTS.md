@@ -1,7 +1,7 @@
 # REQUIREMENTS.md — Đặc tả yêu cầu hệ thống (SRS)
 
 **Dự án:** Maple — Course Document RAG Chatbot
-**Phiên bản:** 2.0 (cập nhật 12/06/2026 — bổ sung Phòng học, Yêu cầu tài khoản, chat chỉ Sinh viên)
+**Phiên bản:** 2.1 (cập nhật 26/06/2026 — tách Role thành entity riêng (bảng `roles`), email báo Admin khi có yêu cầu tài khoản mới; trước đó 2.0: Phòng học, Yêu cầu tài khoản, chat chỉ Sinh viên)
 **Tài liệu liên quan:** [README.md](../README.md) · [DESIGN.md](DESIGN.md) · [diagram.md](diagram.md) · [schema.sql](schema.sql) · [CLAUDE.md](../CLAUDE.md)
 
 ---
@@ -92,7 +92,7 @@ Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 
 | Mã | Yêu cầu | Quyền |
 |----|---------|-------|
-| FR-REQ-01 | Form public ở trang đăng nhập: họ tên + email + vai trò mong muốn (USER/LECTURER) + lời nhắn → lưu `AccountRequest` trạng thái PENDING. Không xin được role ADMIN (422) | Guest |
+| FR-REQ-01 | Form public ở trang đăng nhập: họ tên + email + vai trò mong muốn (USER/LECTURER) + lời nhắn → lưu `AccountRequest` trạng thái PENDING; gửi email báo Admin (`ADMIN_EMAIL`, best-effort). Không xin được role ADMIN (422) | Guest |
 | FR-REQ-02 | Chống spam: tối đa **5 yêu cầu/giờ/IP** (429); chặn email đã có tài khoản (400); chặn email đã có yêu cầu PENDING (400) | — |
 | FR-REQ-03 | Admin xem danh sách yêu cầu (lọc theo trạng thái); **Duyệt** → tạo tài khoản qua flow FR-ADM-02 (mật khẩu tự sinh + email) → APPROVED; **Từ chối** → REJECTED. Yêu cầu đã xử lý không xử lý lại (400) | Admin |
 | FR-REQ-04 | Người được duyệt đăng nhập được ngay bằng mật khẩu trong email (hoặc Google cùng email) | — |
@@ -200,7 +200,8 @@ Phân quyền thực thi server-side qua JWT + dependency `require_role(...)`.
 
 Mô hình đầy đủ (thuộc tính, quan hệ, quy tắc xóa) xem [diagram.md §2–3](diagram.md) và [schema.sql](schema.sql). Tóm tắt thực thể:
 
-- **User** (role ADMIN/LECTURER/USER, plan FREE/PRO/MAX) · **AccountRequest** (PENDING/APPROVED/REJECTED)
+- **Role** (entity riêng — bảng `roles`: code ADMIN/LECTURER/USER + name + description; seed cố định id 1/2/3) — User & AccountRequest tham chiếu qua khóa ngoại `role_id` / `requested_role_id`
+- **User** (role_id → Role, plan FREE/PRO/MAX) · **AccountRequest** (requested_role_id → Role, PENDING/APPROVED/REJECTED)
 - **Course** → Chapter, Document, Quiz, Room
 - **Document** (PROCESSING/INDEXED/FAILED) — vector + chunk text nằm ở ChromaDB/pgvector, không lặp trong SQL
 - **ChatSession** → Message (citations_json)

@@ -47,10 +47,29 @@ def init_db() -> None:
     from app.modules.account_requests import models as req_models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _seed_roles()
     # Migration tay chỉ cần cho SQLite cũ; SQL Server luôn tạo mới đủ cột
     # qua create_all nên bỏ qua (PRAGMA là cú pháp riêng của SQLite).
     if IS_SQLITE:
         _run_lightweight_migrations()
+
+
+def _seed_roles() -> None:
+    """Seed 3 vai trò cố định (ADMIN/LECTURER/USER) vào bảng roles.
+
+    Idempotent: chỉ thêm khi chưa có. Chạy cho mọi backend vì users.role_id
+    là FK trỏ tới đây — phải có sẵn trước khi tạo bất kỳ user nào.
+    """
+    from app.modules.users.models import ROLE_SEED, RoleModel
+
+    db = SessionLocal()
+    try:
+        for r in ROLE_SEED:
+            if db.get(RoleModel, r["id"]) is None:
+                db.add(RoleModel(**r))
+        db.commit()
+    finally:
+        db.close()
 
 
 def _run_lightweight_migrations() -> None:
@@ -79,3 +98,48 @@ def _run_lightweight_migrations() -> None:
             conn.execute(
                 text("ALTER TABLE users ADD COLUMN plan VARCHAR NOT NULL DEFAULT 'FREE'")
             )
+
+        # role (enum) -> roles table: thêm role_id, backfill từ cột role cũ rồi
+        # bỏ cột role (SQLite 3.35+ hỗ trợ DROP COLUMN; Python 3.11 đủ mới).
+        if "role_id" not in user_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN role_id INTEGER"))
+            if "role" in user_cols:
+                conn.execute(
+                    text(
+                        "UPDATE users SET role_id = CASE role "
+                        "WHEN 'ADMIN' THEN 1 WHEN 'LECTURER' THEN 2 ELSE 3 END"
+                    )
+                )
+                conn.execute(text("ALTER TABLE users DROP COLUMN role"))
+            else:
+                conn.execute(
+                    text("UPDATE users SET role_id = 3 WHERE role_id IS NULL")
+                )
+
+        # account_requests.requested_role (enum) -> requested_role_id (FK roles).
+        req_cols = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(account_requests)"))
+        }
+        if req_cols and "requested_role_id" not in req_cols:
+            conn.execute(
+                text("ALTER TABLE account_requests ADD COLUMN requested_role_id INTEGER")
+            )
+            if "requested_role" in req_cols:
+                conn.execute(
+                    text(
+                        "UPDATE account_requests SET requested_role_id = CASE "
+                        "requested_role WHEN 'ADMIN' THEN 1 "
+                        "WHEN 'LECTURER' THEN 2 ELSE 3 END"
+                    )
+                )
+                conn.execute(
+                    text("ALTER TABLE account_requests DROP COLUMN requested_role")
+                )
+            else:
+                conn.execute(
+                    text(
+                        "UPDATE account_requests SET requested_role_id = 3 "
+                        "WHERE requested_role_id IS NULL"
+                    )
+                )

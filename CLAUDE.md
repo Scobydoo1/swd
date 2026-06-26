@@ -288,7 +288,8 @@ frontend/
 
 ## 7. Data Model (SQLite)
 
-- **User** (id, email, password_hash, full_name, role[ADMIN|LECTURER|USER], **plan[FREE|PRO|MAX]**, created_at)
+- **Role** (id, code[ADMIN|LECTURER|USER] unique, name, description) — entity riêng (bảng `roles`), seed cố định id 1/2/3; enum `Role` trong code chỉ là mã vai trò cho `require_role`
+- **User** (id, email, password_hash, full_name, role_id → Role, **plan[FREE|PRO|MAX]**, created_at)
 - **Course** (id, name, description, owner_id → User[Lecturer])
 - **Chapter** (id, course_id, title, order)
 - **Document** (id, course_id, chapter_id?, uploaded_by → User, filename, file_type, status, num_chunks, created_at)
@@ -299,7 +300,7 @@ frontend/
 - **QuizAttempt** (id, quiz_id → Quiz, user_id → User, score, answers_json, created_at)
 - **Room** (id, name, description, course_id → Course, created_by → User[Lecturer/Admin], created_at)
 - **RoomMember** (id, room_id → Room, user_id → User[Student], added_at) — unique (room_id, user_id)
-- **AccountRequest** (id, email, full_name, requested_role[LECTURER|USER], message, status[PENDING|APPROVED|REJECTED], created_at, decided_at?)
+- **AccountRequest** (id, email, full_name, requested_role_id → Role[LECTURER|USER], message, status[PENDING|APPROVED|REJECTED], created_at, decided_at?)
 
 Vector + chunk text lưu trong ChromaDB (không lặp lại trong SQLite để gọn).
 Gói dịch vụ (Free/Pro/Max + giá + tính năng) định nghĩa tĩnh trong `subscriptions/plans.py`, không lưu DB.

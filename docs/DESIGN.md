@@ -92,15 +92,15 @@ classDiagram
         +str email
         +str password_hash
         +str full_name
-        +Role role
+        +int role_id
         +Plan plan
         +datetime created_at
     }
     class Role {
-        <<enumeration>>
-        ADMIN
-        LECTURER
-        USER
+        +int id
+        +str code
+        +str name
+        +str description
     }
     class Plan {
         <<enumeration>>
@@ -206,7 +206,7 @@ classDiagram
         +int id
         +str email
         +str full_name
-        +Role requested_role
+        +int requested_role_id
         +str message
         +RequestStatus status
         +datetime created_at
@@ -236,12 +236,12 @@ classDiagram
     Message "1" --> "0..*" Citation : contains
     Quiz "1" --> "1..*" Question
     Quiz "1" --> "0..*" QuizAttempt
-    User --> Role
+    Role "1" --> "0..*" User : assigned to
+    Role "1" --> "0..*" AccountRequest : requested as
     User --> Plan
     Document --> FileType
     Document --> Status
     AccountRequest --> RequestStatus
-    AccountRequest --> Role
 ```
 
 ---
@@ -503,6 +503,8 @@ Toàn bộ backend chạy trong **một process** (đúng tinh thần Modular Mo
 
 ```mermaid
 erDiagram
+    ROLE ||--o{ USER : "assigned to"
+    ROLE ||--o{ ACCOUNT_REQUEST : "requested as"
     USER ||--o{ COURSE : "owns (Lecturer)"
     USER ||--o{ DOCUMENT : uploads
     USER ||--o{ CHATSESSION : has
@@ -520,14 +522,19 @@ erDiagram
     CHATSESSION ||--o{ MESSAGE : contains
     QUIZ ||--o{ QUIZQUESTION : contains
     QUIZ ||--o{ QUIZATTEMPT : "graded by"
-    ACCOUNT_REQUEST ||--o{ USER : "approved -> creates"
 
+    ROLE {
+        int id PK
+        string code UK "ADMIN|LECTURER|USER"
+        string name
+        string description
+    }
     USER {
         int id PK
         string email UK
         string password_hash
         string full_name
-        enum role "ADMIN|LECTURER|USER"
+        int role_id FK
         enum plan "FREE|PRO|MAX"
         datetime created_at
     }
@@ -611,7 +618,7 @@ erDiagram
         int id PK
         string email
         string full_name
-        enum requested_role "LECTURER|USER"
+        int requested_role_id FK "LECTURER|USER"
         string message
         enum status "PENDING|APPROVED|REJECTED"
         datetime created_at

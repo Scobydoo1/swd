@@ -11,27 +11,46 @@
 -- hoặc trong sqlite3:  .read docs/schema.sql
 --
 -- Thứ tự tạo bảng theo phụ thuộc khóa ngoại (FK):
---   users → courses → chapters → documents
---         → chat_sessions → messages
---         → quizzes → quiz_questions → quiz_attempts
+--   roles → users → courses → chapters → documents
+--                 → chat_sessions → messages
+--                 → quizzes → quiz_questions → quiz_attempts
+--                 → rooms → room_members
+--   roles → account_requests
 --
 -- Lưu ý: vector + chunk text KHÔNG nằm ở đây — chúng ở ChromaDB.
 -- SQLite chỉ giữ metadata. Bật ràng buộc FK mỗi phiên:
 PRAGMA foreign_keys = ON;
 
 -- ---------------------------------------------------------------------
--- USERS — tài khoản, role (RBAC) và gói dịch vụ (plan)
+-- ROLES — vai trò (RBAC) tách thành entity riêng, không nhúng vào users
+-- ---------------------------------------------------------------------
+CREATE TABLE roles (
+    id           INTEGER NOT NULL PRIMARY KEY,
+    code         VARCHAR(20) NOT NULL,            -- ADMIN | LECTURER | USER
+    name         VARCHAR(100) NOT NULL,
+    description  VARCHAR(255) NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX ix_roles_code ON roles (code);
+
+-- Seed cố định 3 vai trò (id khớp thứ tự enum trong code):
+INSERT INTO roles (id, code, name, description) VALUES
+    (1, 'ADMIN',    'Quản trị viên', 'Toàn quyền: người dùng, tài liệu, môn học, phòng học, giám sát'),
+    (2, 'LECTURER', 'Giảng viên',    'Tài liệu, môn học/chương, quiz, phòng học của mình'),
+    (3, 'USER',     'Sinh viên',     'Chat hỏi đáp RAG, làm quiz, tham gia phòng học, gói dịch vụ');
+
+-- ---------------------------------------------------------------------
+-- USERS — tài khoản; role tham chiếu roles qua role_id (FK), plan = gói dịch vụ
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
     id              INTEGER  NOT NULL PRIMARY KEY,
     email           VARCHAR  NOT NULL,
     password_hash   VARCHAR  NOT NULL,            -- bcrypt, không lưu plaintext
     full_name       VARCHAR  NOT NULL,
-    role            VARCHAR(8)  NOT NULL DEFAULT 'USER'
-                    CHECK (role IN ('ADMIN', 'LECTURER', 'USER')),
+    role_id         INTEGER  NOT NULL DEFAULT 3,  -- → roles.id (mặc định USER)
     plan            VARCHAR  NOT NULL DEFAULT 'FREE'
                     CHECK (plan IN ('FREE', 'PRO', 'MAX')),
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles (id)
 );
 CREATE UNIQUE INDEX ix_users_email ON users (email);
 
@@ -145,6 +164,50 @@ CREATE TABLE quiz_attempts (
     FOREIGN KEY (quiz_id) REFERENCES quizzes (id),
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
+
+-- ---------------------------------------------------------------------
+-- ROOMS — phòng học (Lecturer/Admin tạo, gắn một môn học)
+-- ---------------------------------------------------------------------
+CREATE TABLE rooms (
+    id           INTEGER NOT NULL PRIMARY KEY,
+    name         VARCHAR NOT NULL,
+    description  VARCHAR NOT NULL DEFAULT '',
+    course_id    INTEGER NOT NULL,
+    created_by   INTEGER,                          -- → users.id (Lecturer/Admin)
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id)  REFERENCES courses (id),
+    FOREIGN KEY (created_by) REFERENCES users (id)
+);
+
+-- ---------------------------------------------------------------------
+-- ROOM_MEMBERS — sinh viên được mời vào phòng (unique room_id + user_id)
+-- ---------------------------------------------------------------------
+CREATE TABLE room_members (
+    id        INTEGER NOT NULL PRIMARY KEY,
+    room_id   INTEGER NOT NULL,
+    user_id   INTEGER NOT NULL,                    -- → users.id (Student)
+    added_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (room_id) REFERENCES rooms (id),
+    FOREIGN KEY (user_id) REFERENCES users (id),
+    UNIQUE (room_id, user_id)
+);
+
+-- ---------------------------------------------------------------------
+-- ACCOUNT_REQUESTS — yêu cầu cấp tài khoản công khai; Admin duyệt/từ chối
+-- ---------------------------------------------------------------------
+CREATE TABLE account_requests (
+    id                 INTEGER NOT NULL PRIMARY KEY,
+    email              VARCHAR NOT NULL,
+    full_name          VARCHAR NOT NULL,
+    requested_role_id  INTEGER NOT NULL DEFAULT 3, -- → roles.id (LECTURER/USER)
+    message            VARCHAR NOT NULL DEFAULT '',
+    status             VARCHAR(8) NOT NULL DEFAULT 'PENDING'
+                       CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    decided_at         DATETIME,                   -- nullable: thời điểm duyệt/từ chối
+    FOREIGN KEY (requested_role_id) REFERENCES roles (id)
+);
+CREATE INDEX ix_account_requests_email ON account_requests (email);
 
 -- =====================================================================
 -- Ghi chú di động (Postgres / MySQL):

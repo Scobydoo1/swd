@@ -116,15 +116,15 @@ classDiagram
         +str email
         +str password_hash
         +str full_name
-        +Role role
+        +int role_id
         +Plan plan
         +datetime created_at
     }
     class Role {
-        <<enumeration>>
-        ADMIN
-        LECTURER
-        USER
+        +int id
+        +str code
+        +str name
+        +str description
     }
     class Plan {
         <<enumeration>>
@@ -206,7 +206,7 @@ classDiagram
         +datetime added_at
     }
 
-    User --> Role
+    Role "1" --> "0..*" User : assigned to
     User --> Plan
     User "1" --> "0..*" Course : owns
     User "1" --> "0..*" Document : uploads
@@ -421,6 +421,8 @@ graph TB
 
 ```mermaid
 erDiagram
+    ROLE ||--o{ USER : "assigned to"
+    ROLE ||--o{ ACCOUNT_REQUEST : "requested as"
     USER ||--o{ COURSE : "owns (Lecturer)"
     USER ||--o{ DOCUMENT : uploads
     USER ||--o{ CHATSESSION : has
@@ -438,14 +440,30 @@ erDiagram
     QUIZ ||--|{ QUESTION : has
     QUIZ ||--o{ QUIZATTEMPT : records
 
+    ROLE {
+        int id PK
+        string code UK "ADMIN|LECTURER|USER"
+        string name
+        string description
+    }
     USER {
         int id PK
         string email UK
         string password_hash
         string full_name
-        enum role "ADMIN|LECTURER|USER"
+        int role_id FK
         enum plan "FREE|PRO|MAX"
         datetime created_at
+    }
+    ACCOUNT_REQUEST {
+        int id PK
+        string email
+        string full_name
+        int requested_role_id FK
+        string message
+        enum status "PENDING|APPROVED|REJECTED"
+        datetime created_at
+        datetime decided_at
     }
     QUIZ {
         int id PK
