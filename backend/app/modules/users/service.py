@@ -109,6 +109,9 @@ def ensure_default_admin(db: Session) -> None:
     """
     if not settings.admin_email or not settings.admin_password:
         return
+    from app.database import ensure_schema_current
+
+    ensure_schema_current()
     if db.query(User).filter(User.role == Role.ADMIN).first():
         return
     repo = UserRepository(db)

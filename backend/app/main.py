@@ -33,6 +33,9 @@ def on_startup():
     db = SessionLocal()
     try:
         ensure_default_admin(db)
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

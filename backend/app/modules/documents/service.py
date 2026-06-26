@@ -48,6 +48,7 @@ class DocumentService:
             )
             return self.repo.mark_indexed(doc, n)
         except Exception as e:
+            self.db.rollback()
             self.repo.mark_failed(doc, str(e))
             raise HTTPException(status_code=500, detail=f"Index thất bại: {e}")
 

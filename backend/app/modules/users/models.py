@@ -51,6 +51,10 @@ class RoleModel(Base):
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(String(255), default="")
+    users: Mapped[list["User"]] = relationship(back_populates="role_ref")
+    account_requests: Mapped[list["AccountRequest"]] = relationship(
+        back_populates="role_ref"
+    )
 
 
 class User(Base):
@@ -61,9 +65,12 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(255))
     role_id: Mapped[int] = mapped_column(
-        ForeignKey("roles.id"), default=ROLE_IDS[Role.USER]
+        ForeignKey("roles.id"), nullable=False, default=ROLE_IDS[Role.USER]
     )
-    role_ref: Mapped["RoleModel"] = relationship(lazy="joined")
+    role_ref: Mapped["RoleModel"] = relationship(
+        back_populates="users",
+        lazy="joined",
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # role là entity riêng (bảng roles). hybrid_property cho phép vừa dùng

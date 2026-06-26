@@ -25,9 +25,12 @@ class AccountRequest(Base):
     full_name: Mapped[str] = mapped_column(String(255))
     # Vai trò mong muốn tham chiếu bảng roles (tách entity, không nhúng enum).
     requested_role_id: Mapped[int] = mapped_column(
-        ForeignKey("roles.id"), default=ROLE_IDS[Role.USER]
+        ForeignKey("roles.id"), nullable=False, default=ROLE_IDS[Role.USER]
     )
-    role_ref: Mapped["RoleModel"] = relationship(lazy="joined")
+    role_ref: Mapped["RoleModel"] = relationship(
+        back_populates="account_requests",
+        lazy="joined",
+    )
     message: Mapped[str] = mapped_column(String(1000), default="")
     status: Mapped[RequestStatus] = mapped_column(
         Enum(RequestStatus), default=RequestStatus.PENDING
