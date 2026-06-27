@@ -3,6 +3,7 @@
 // blockquote, links, hr, paragraphs. Plus a CodeBlock with copy button.
 import { useState, type ReactNode } from "react";
 import { IconCheck, IconCopy } from "./Icons";
+import { MathBlock, splitInlineMath } from "../lib/math";
 
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
@@ -27,7 +28,17 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   );
 }
 
-// inline formatting: `code`, **bold**, *italic*, [text](url)
+// Đẩy text thường vào tokens, nhưng tách inline math ($...$, \(...\)) ra trước.
+function pushText(
+  tokens: ReactNode[],
+  text: string,
+  keyPrefix: string | number
+) {
+  for (const node of splitInlineMath(text, keyPrefix, (chunk) => chunk))
+    tokens.push(node);
+}
+
+// inline formatting: `code`, **bold**, *italic*, [text](url), $math$
 function renderInline(text: string, keyPrefix: string | number): ReactNode[] {
   const tokens: ReactNode[] = [];
   let rest = text;
@@ -36,10 +47,11 @@ function renderInline(text: string, keyPrefix: string | number): ReactNode[] {
   while (rest.length) {
     const m = rest.match(re);
     if (!m || m.index === undefined) {
-      tokens.push(rest);
+      pushText(tokens, rest, `${keyPrefix}-r${i++}`);
       break;
     }
-    if (m.index > 0) tokens.push(rest.slice(0, m.index));
+    if (m.index > 0)
+      pushText(tokens, rest.slice(0, m.index), `${keyPrefix}-p${i}`);
     const tok = m[0];
     const k = `${keyPrefix}-${i++}`;
     if (tok.startsWith("`"))
@@ -84,6 +96,28 @@ export function Markdown({ src }: { src: string }) {
       }
       i++; // closing fence
       out.push(<CodeBlock key={key++} code={buf.join("\n")} lang={lang} />);
+      continue;
+    }
+    // block math: $$ ... $$ (mở/đóng cùng dòng hoặc nhiều dòng)
+    if (/^\s*\$\$/.test(line)) {
+      const trimmed = line.trim();
+      const oneLine = trimmed.match(/^\$\$(.+)\$\$$/);
+      if (oneLine) {
+        out.push(<MathBlock key={key++} tex={oneLine[1].trim()} />);
+        i++;
+        continue;
+      }
+      const buf: string[] = [trimmed.replace(/^\$\$/, "")];
+      i++;
+      while (i < lines.length && !/\$\$\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) {
+        buf.push(lines[i].replace(/\$\$\s*$/, ""));
+        i++;
+      }
+      out.push(<MathBlock key={key++} tex={buf.join("\n").trim()} />);
       continue;
     }
     // heading
@@ -168,6 +202,7 @@ export function Markdown({ src }: { src: string }) {
       !/^(#{1,4})\s/.test(lines[i]) &&
       !/^\s*[-*]\s/.test(lines[i]) &&
       !/^\s*\d+\.\s/.test(lines[i]) &&
+      !/^\s*\$\$/.test(lines[i]) &&
       !/^>\s?/.test(lines[i])
     ) {
       buf.push(lines[i]);

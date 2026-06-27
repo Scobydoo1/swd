@@ -21,6 +21,19 @@ class QuizCreate(BaseModel):
     questions: list[QuestionIn] = Field(min_length=1, max_length=50)
 
 
+# FR-QZ-05: Yêu cầu AI soạn nháp đề (Lecturer duyệt/sửa trước khi lưu).
+class QuizGenerateRequest(BaseModel):
+    course_id: int
+    num_questions: int = Field(default=5, ge=1, le=20)
+    topic: str | None = Field(default=None, max_length=300)
+
+
+# Kết quả AI soạn — chỉ là NHÁP, chưa lưu DB. Lecturer chỉnh rồi gọi QuizCreate.
+class GeneratedQuiz(BaseModel):
+    title: str
+    questions: list[QuestionIn]
+
+
 # Dạng gọn cho danh sách quiz.
 class QuizOut(BaseModel):
     id: int
@@ -70,3 +83,37 @@ class AttemptOut(BaseModel):
     user_email: str | None
     score: float
     created_at: datetime
+
+
+# FR-QZ: Một dòng trong "Bảng điểm" (Grade) của Sinh viên theo môn học.
+class GradeItem(BaseModel):
+    quiz_id: int
+    quiz_title: str
+    course_id: int
+    attempt_id: int
+    score: float
+    correct: int
+    total: int
+    created_at: datetime
+
+
+# Một câu trong màn xem lại bài làm: kèm đề, đáp án đã chọn và đáp án đúng.
+class ReviewQuestion(BaseModel):
+    id: int
+    text: str
+    options: list[str]
+    your_index: int | None
+    correct_index: int
+    is_correct: bool
+
+
+# FR-QZ-02 (mở rộng): Sinh viên xem lại chi tiết một lượt làm đã nộp.
+class AttemptReview(BaseModel):
+    attempt_id: int
+    quiz_id: int
+    quiz_title: str
+    score: float
+    correct: int
+    total: int
+    created_at: datetime
+    questions: list[ReviewQuestion]

@@ -15,6 +15,9 @@ Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and So
 | **Chat & Hỏi đáp RAG** | **Chỉ Sinh viên** chat theo ngữ cảnh hội thoại, trích dẫn nguồn, giới hạn trong tài liệu đã index (Admin giữ quyền giám sát; Giảng viên không dùng AI chat) |
 | **Quản lý tài liệu** | Upload PDF/DOCX/PPTX → tự động chunk & embed, xem trạng thái (PROCESSING / INDEXED / FAILED) |
 | **Quiz trắc nghiệm** | Lecturer tạo quiz theo **từng môn học**; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng; **điểm tự gửi về Lecturer** (bảng kết quả kèm tên sinh viên) |
+| **AI soạn quiz (Gemini)** | Lecturer nhờ **AI soạn nháp đề** từ tài liệu môn học (chọn số câu + chủ đề) → đề hiện ngay trong form để **duyệt & chỉnh sửa** trước khi lưu (không tự lưu) |
+| **Bảng điểm & xem lại (Grade)** | Sinh viên có trang **Bảng điểm** gom mọi kết quả quiz **theo môn học**; bấm **Xem lại** từng lượt làm để soi đáp án đã chọn vs đáp án đúng |
+| **Định dạng toán (LaTeX)** | Chat và đề/đáp án quiz render công thức toán bằng KaTeX (`$...$` inline, `$$...$$` block) |
 | **Phòng học (Rooms)** | Chỉ Admin/Lecturer tạo phòng gắn với môn học, **mời sinh viên** vào; trong phòng có quiz + slide/tài liệu của môn để sinh viên học và làm bài |
 | **Yêu cầu tài khoản** | Form public ở trang đăng nhập (họ tên, email, vai trò, lời nhắn) → Admin **duyệt** trong tab riêng → tài khoản tạo tự động + mật khẩu gửi qua email; chống spam theo IP; Admin nhận email báo khi có yêu cầu mới |
 | **Phân quyền 3 actor** | Admin (**chỉ quản lý người dùng** + duyệt yêu cầu tài khoản), Lecturer (tài liệu + quiz + môn học + phòng học), User/Student (chat + phòng học + làm quiz) |
@@ -543,6 +546,9 @@ pip install -r requirements.txt
 cp .env.example .env   # xem hướng dẫn env bên dưới
 
 python seed.py         # tạo 3 user demo + môn học + quiz mẫu
+
+# (tuỳ chọn) nạp giáo trình chính (Gomaa) vào RAG để hỏi đáp chạy sẵn:
+python -m scripts.seed_textbook   # idempotent, chạy offline (embed local)
 
 uvicorn app.main:app --reload --port 8000
 # Hoặc mở cho điện thoại/emulator truy cập:

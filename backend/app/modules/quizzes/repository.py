@@ -70,3 +70,23 @@ class QuizRepository:
             .order_by(QuizAttempt.created_at.desc())
             .all()
         )
+
+    def get_attempt(self, attempt_id: int) -> QuizAttempt | None:
+        return (
+            self.db.query(QuizAttempt)
+            .filter(QuizAttempt.id == attempt_id)
+            .first()
+        )
+
+    def list_user_attempts(
+        self, user_id: int, course_id: int | None = None
+    ) -> list[tuple[QuizAttempt, Quiz]]:
+        # Bảng điểm của Sinh viên: join Quiz để lấy tiêu đề + lọc theo môn.
+        q = (
+            self.db.query(QuizAttempt, Quiz)
+            .join(Quiz, QuizAttempt.quiz_id == Quiz.id)
+            .filter(QuizAttempt.user_id == user_id)
+        )
+        if course_id is not None:
+            q = q.filter(Quiz.course_id == course_id)
+        return q.order_by(QuizAttempt.created_at.desc()).all()

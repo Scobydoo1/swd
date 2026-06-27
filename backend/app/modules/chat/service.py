@@ -17,6 +17,7 @@ QUY TẮC BẮT BUỘC:
 - Nếu NGỮ CẢNH không chứa thông tin để trả lời, hãy nói rõ: "Tôi không tìm thấy thông tin này trong tài liệu."
 - Trả lời bằng tiếng Việt, rõ ràng, súc tích.
 - Khi có thể, hãy nhắc đến tên tài liệu/trang mà bạn dựa vào.
+- Với công thức/ký hiệu toán học, dùng cú pháp LaTeX: $...$ cho công thức trong dòng và $$...$$ cho công thức tách dòng.
 """
 
 NO_CONTEXT_MSG = "Tôi không tìm thấy thông tin này trong tài liệu."

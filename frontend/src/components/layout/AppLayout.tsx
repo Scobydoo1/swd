@@ -5,9 +5,11 @@ import { useAuth } from "../../auth/AuthContext";
 import { useChatSessions } from "../../chat/ChatSessionContext";
 import { useLang } from "../../i18n/LanguageContext";
 import { LANGS } from "../../i18n/translations";
+import { parseServerDate } from "../../lib/datetime";
 import type { ChatSession } from "../../types";
 import {
   IconBook,
+  IconChart,
   IconChat,
   IconLogout,
   IconMaple,
@@ -57,7 +59,7 @@ function groupByTime(sessions: ChatSession[]) {
   const day = 86400000;
   const groups: Record<string, ChatSession[]> = {};
   for (const s of sessions) {
-    const t = s.created_at ? new Date(s.created_at).getTime() : now;
+    const t = s.created_at ? parseServerDate(s.created_at).getTime() : now;
     const age = now - t;
     const key = age < day ? "today" : age < 7 * day ? "last7" : "older";
     (groups[key] = groups[key] || []).push(s);
@@ -223,6 +225,9 @@ export function AppLayout() {
           )}
           {!isAdmin && (
             <NavItem to="/quizzes" label={t("nav.quiz")} icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
+          )}
+          {isStudent && (
+            <NavItem to="/grades" label={t("nav.grade")} icon={<IconChart size={19} />} onClick={closeOnMobile} />
           )}
           {isAdmin && (
             <NavItem to="/admin" label={t("nav.users")} icon={<IconUsers size={19} />} onClick={closeOnMobile} />
