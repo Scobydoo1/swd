@@ -36,8 +36,17 @@ export function DocumentsPage() {
   const [newDesc, setNewDesc] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const load = () =>
-    api.get<Document[]>("/documents").then((r) => setDocs(r.data));
+  // Chỉ tải tài liệu của môn đang chọn — tạo môn mới sẽ KHÔNG còn thấy tài
+  // liệu của môn cũ (mỗi môn có kho tài liệu riêng).
+  const load = (cid: number | null = courseId) => {
+    if (!cid) {
+      setDocs([]);
+      return Promise.resolve();
+    }
+    return api
+      .get<Document[]>("/documents", { params: { course_id: cid } })
+      .then((r) => setDocs(r.data));
+  };
 
   const loadCourses = (selectId?: number) =>
     api.get<Course[]>("/courses").then((r) => {
@@ -47,9 +56,14 @@ export function DocumentsPage() {
     });
 
   useEffect(() => {
-    load();
     loadCourses();
   }, []);
+
+  // Đổi môn (kể cả vừa tạo môn mới) -> tải lại tài liệu đúng môn đó.
+  useEffect(() => {
+    load(courseId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId]);
 
   const createCourse = async () => {
     if (!newName.trim()) return;

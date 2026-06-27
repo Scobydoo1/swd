@@ -1,6 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -33,3 +40,16 @@ class RoomMember(Base):
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# FR-ROOM-05: Bảng tin/thông báo của phòng học (như lớp học online).
+class Announcement(Base):
+    __tablename__ = "room_announcements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"))
+    author_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

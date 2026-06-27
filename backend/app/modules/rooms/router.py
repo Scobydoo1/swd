@@ -3,10 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.modules.rooms.schemas import (
+    AnnouncementCreate,
+    AnnouncementOut,
     InviteRequest,
     MemberOut,
     RoomCreate,
     RoomDetail,
+    RoomGradeRow,
     RoomOut,
     StudentOut,
 )
@@ -83,3 +86,36 @@ def delete_room(
     user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
 ):
     RoomService(db).delete(room_id, user)
+
+
+# FR-ROOM-05: Bảng tin — thành viên xem; người tạo phòng / Admin đăng & xoá.
+@router.post(
+    "/{room_id}/announcements", response_model=AnnouncementOut, status_code=201
+)
+def post_announcement(
+    room_id: int,
+    payload: AnnouncementCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
+):
+    return RoomService(db).add_announcement(room_id, payload.content, user)
+
+
+@router.delete("/{room_id}/announcements/{ann_id}", status_code=204)
+def delete_announcement(
+    room_id: int,
+    ann_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
+):
+    RoomService(db).delete_announcement(room_id, ann_id, user)
+
+
+# FR-ROOM-06: Bảng điểm tổng của lớp — chỉ người tạo phòng / Admin.
+@router.get("/{room_id}/grades", response_model=list[RoomGradeRow])
+def room_grades(
+    room_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
+):
+    return RoomService(db).room_grades(room_id, user)

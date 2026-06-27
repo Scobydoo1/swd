@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useLang } from "../i18n/LanguageContext";
+import { formatDateTimeVN } from "../lib/datetime";
 import {
   IconChart,
   IconCheck,
   IconClose,
   IconPlus,
   IconQuiz,
+  IconRoom,
   IconSidebar,
   IconSpark,
   IconTrash,
@@ -19,10 +21,10 @@ import {
   TakeQuizModal,
 } from "../components/quiz/QuizModals";
 import type {
-  Course,
   GeneratedQuiz,
   QuizDetail,
   QuizListItem,
+  Room,
 } from "../types";
 
 type Ctx = { openSidebar: () => void };
@@ -39,6 +41,22 @@ const emptyQuestion = (): DraftQuestion => ({
   correct_index: 0,
 });
 
+// datetime-local (giờ máy) -> ISO naive UTC ("YYYY-MM-DDTHH:MM:SS") để backend
+// lưu UTC nhất quán (so sánh với datetime.utcnow naive, tránh lệch giờ).
+function toUtcNaiveIso(localValue: string): string | null {
+  if (!localValue) return null;
+  const d = new Date(localValue);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19);
+}
+
+function quizClosed(q: QuizListItem): boolean {
+  return !!q.closes_at && new Date(q.closes_at + "Z").getTime() < Date.now();
+}
+function quizNotOpen(q: QuizListItem): boolean {
+  return !!q.opens_at && new Date(q.opens_at + "Z").getTime() > Date.now();
+}
+
 export function QuizzesPage() {
   const { openSidebar } = useOutletContext<Ctx>();
   const { user } = useAuth();
@@ -51,12 +69,25 @@ export function QuizzesPage() {
   const [viewingResults, setViewingResults] = useState<QuizListItem | null>(
     null
   );
+  const [password, setPassword] = useState<{ title: string; pwd: string } | null>(
+    null
+  );
 
   const load = () =>
     api.get<QuizListItem[]>("/quizzes").then((r) => setQuizzes(r.data));
   useEffect(() => {
     load();
   }, []);
+
+  // Gom nhóm theo phòng để tránh nhầm lẫn giữa các lớp.
+  const groups = useMemo(() => {
+    const map = new Map<string, QuizListItem[]>();
+    for (const q of quizzes) {
+      const key = q.room_name ?? "—";
+      (map.get(key) ?? map.set(key, []).get(key)!).push(q);
+    }
+    return [...map.entries()];
+  }, [quizzes]);
 
   const remove = async (id: number) => {
     if (!confirm(t("quiz.deleteConfirm"))) return;
@@ -67,6 +98,13 @@ export function QuizzesPage() {
   const openTake = async (id: number) => {
     const { data } = await api.get<QuizDetail>(`/quizzes/${id}`);
     setTaking(data);
+  };
+
+  const showPassword = async (q: QuizListItem) => {
+    const { data } = await api.get<{ password: string | null }>(
+      `/quizzes/${q.id}/password`
+    );
+    setPassword({ title: q.title, pwd: data.password ?? "" });
   };
 
   return (
@@ -85,7 +123,7 @@ export function QuizzesPage() {
               <h1 className="font-display text-2xl font-bold text-ink">{t("nav.quiz")}</h1>
             </div>
             <p className="mt-1 text-sm text-ink-faint">
-              {canManage ? t("quiz.subtitleManage") : t("quiz.subtitleTake")}
+              {t("quiz.subtitleManage")}
             </p>
           </div>
           {canManage && (
@@ -106,50 +144,108 @@ export function QuizzesPage() {
             {t("quiz.empty")}
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {quizzes.map((q) => (
-              <div
-                key={q.id}
-                className="flex flex-col rounded-[18px] border border-line bg-surface p-5 shadow-maple-sm transition hover:border-accent/40"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-surface-2 text-accent">
-                    <IconQuiz size={20} />
+          <div className="flex flex-col gap-6">
+            {groups.map(([roomName, items]) => (
+              <section key={roomName}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-surface-2 text-accent">
+                    <IconRoom size={15} />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-semibold text-ink">{q.title}</h3>
-                    <p className="text-xs text-ink-faint">
-                      {t("quiz.numQuestions", { n: q.num_questions })}
-                    </p>
-                  </div>
-                  {canManage && (
-                    <button
-                      onClick={() => remove(q.id)}
-                      className="grid h-8 w-8 flex-none place-items-center rounded-lg text-ink-faint transition hover:bg-danger/10 hover:text-danger"
-                      title={t("common.delete")}
-                    >
-                      <IconTrash size={16} />
-                    </button>
-                  )}
+                  <h2 className="font-display text-lg font-semibold text-ink">
+                    {roomName}
+                  </h2>
+                  <span className="text-xs text-ink-faint">
+                    ({items.length})
+                  </span>
                 </div>
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => openTake(q.id)}
-                    className="flex-1 rounded-xl border border-line bg-surface-2 py-2 text-sm font-semibold text-accent transition hover:border-accent/60"
-                  >
-                    {canManage ? t("quiz.viewTry") : t("quiz.take")}
-                  </button>
-                  {canManage && (
-                    <button
-                      onClick={() => setViewingResults(q)}
-                      className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm font-semibold text-ink-soft transition hover:border-accent/60 hover:text-accent"
-                      title={t("quiz.results")}
-                    >
-                      <IconChart size={16} /> {t("quiz.results")}
-                    </button>
-                  )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {items.map((q) => {
+                    const closed = quizClosed(q);
+                    const notOpen = quizNotOpen(q);
+                    return (
+                      <div
+                        key={q.id}
+                        className="flex flex-col rounded-[18px] border border-line bg-surface p-5 shadow-maple-sm transition hover:border-accent/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-surface-2 text-accent">
+                            <IconQuiz size={20} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="truncate font-semibold text-ink">
+                              {q.title}
+                            </h3>
+                            <p className="text-xs text-ink-faint">
+                              {t("quiz.numQuestions", { n: q.num_questions })}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {q.has_password && (
+                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
+                                  🔒 {t("quiz.locked")}
+                                </span>
+                              )}
+                              {closed && (
+                                <span className="rounded-md bg-danger/10 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
+                                  {t("quiz.closed")}
+                                </span>
+                              )}
+                              {notOpen && (
+                                <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold text-ink-faint">
+                                  {t("quiz.notOpen")}
+                                </span>
+                              )}
+                              {q.closes_at && !closed && (
+                                <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-faint">
+                                  {t("quiz.due", {
+                                    time: formatDateTimeVN(q.closes_at),
+                                  })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {canManage && (
+                            <button
+                              onClick={() => remove(q.id)}
+                              className="grid h-8 w-8 flex-none place-items-center rounded-lg text-ink-faint transition hover:bg-danger/10 hover:text-danger"
+                              title={t("common.delete")}
+                            >
+                              <IconTrash size={16} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => openTake(q.id)}
+                            className="flex-1 rounded-xl border border-line bg-surface-2 py-2 text-sm font-semibold text-accent transition hover:border-accent/60"
+                          >
+                            {t("quiz.viewTry")}
+                          </button>
+                          {canManage && (
+                            <>
+                              <button
+                                onClick={() => setViewingResults(q)}
+                                className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm font-semibold text-ink-soft transition hover:border-accent/60 hover:text-accent"
+                                title={t("quiz.results")}
+                              >
+                                <IconChart size={16} />
+                              </button>
+                              {q.has_password && (
+                                <button
+                                  onClick={() => showPassword(q)}
+                                  className="rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm font-semibold text-ink-soft transition hover:border-accent/60 hover:text-accent"
+                                  title={t("quiz.showPassword")}
+                                >
+                                  🔑
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              </section>
             ))}
           </div>
         )}
@@ -174,11 +270,35 @@ export function QuizzesPage() {
           onClose={() => setViewingResults(null)}
         />
       )}
+      {password && (
+        <Overlay onClose={() => setPassword(null)}>
+          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+            <h2 className="font-display text-lg font-bold text-ink">
+              {password.title}
+            </h2>
+            <button
+              onClick={() => setPassword(null)}
+              className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2 hover:text-ink"
+            >
+              <IconClose size={18} />
+            </button>
+          </div>
+          <div className="px-5 py-6 text-center">
+            {password.pwd ? (
+              <p className="text-lg font-semibold text-ink">
+                {t("quiz.passwordOf", { pwd: password.pwd })}
+              </p>
+            ) : (
+              <p className="text-sm text-ink-faint">{t("quiz.noPassword")}</p>
+            )}
+          </div>
+        </Overlay>
+      )}
     </div>
   );
 }
 
-/* ---------------- Create quiz ---------------- */
+/* ---------------- Create quiz (gắn 1 phòng) ---------------- */
 function CreateQuizModal({
   onClose,
   onCreated,
@@ -187,33 +307,36 @@ function CreateQuizModal({
   onCreated: () => void;
 }) {
   const { t } = useLang();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [courseId, setCourseId] = useState<number | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomId, setRoomId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
-  const [questions, setQuestions] = useState<DraftQuestion[]>([
-    emptyQuestion(),
-  ]);
+  const [pwd, setPwd] = useState("");
+  const [opensAt, setOpensAt] = useState("");
+  const [closesAt, setClosesAt] = useState("");
+  const [questions, setQuestions] = useState<DraftQuestion[]>([emptyQuestion()]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // FR-QZ-05: AI soạn nháp đề để Lecturer duyệt/sửa.
+  // AI soạn nháp đề.
   const [aiTopic, setAiTopic] = useState("");
   const [aiNum, setAiNum] = useState(5);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiInfo, setAiInfo] = useState("");
 
   useEffect(() => {
-    api.get<Course[]>("/courses").then((r) => {
-      setCourses(r.data);
-      if (r.data[0]) setCourseId(r.data[0].id);
+    api.get<Room[]>("/rooms").then((r) => {
+      setRooms(r.data);
+      if (r.data[0]) setRoomId(r.data[0].id);
     });
   }, []);
+
+  const selectedRoom = rooms.find((r) => r.id === roomId) ?? null;
 
   const patchQ = (i: number, patch: Partial<DraftQuestion>) =>
     setQuestions((qs) => qs.map((q, j) => (j === i ? { ...q, ...patch } : q)));
 
   const generateAi = async () => {
-    if (!courseId) {
+    if (!selectedRoom) {
       setError(t("quiz.aiNeedCourse"));
       return;
     }
@@ -222,20 +345,15 @@ function CreateQuizModal({
     setAiInfo("");
     try {
       const { data } = await api.post<GeneratedQuiz>("/quizzes/generate", {
-        course_id: courseId,
+        course_id: selectedRoom.course_id,
         num_questions: Math.min(50, Math.max(1, Math.floor(aiNum) || 1)),
         topic: aiTopic.trim() || null,
       });
-      // Đổ nháp AID vào form để Lecturer chỉnh sửa (pad đủ 4 lựa chọn).
       setQuestions(
         data.questions.map((q) => {
           const options = [...q.options];
           while (options.length < 4) options.push("");
-          return {
-            text: q.text,
-            options,
-            correct_index: q.correct_index,
-          };
+          return { text: q.text, options, correct_index: q.correct_index };
         })
       );
       if (!title.trim()) setTitle(data.title);
@@ -248,7 +366,7 @@ function CreateQuizModal({
   };
 
   const valid =
-    !!courseId &&
+    !!roomId &&
     title.trim() &&
     questions.every(
       (q) =>
@@ -258,13 +376,16 @@ function CreateQuizModal({
     );
 
   const save = async () => {
-    if (!valid || !courseId) return;
+    if (!valid || !roomId) return;
     setBusy(true);
     setError("");
     try {
       await api.post("/quizzes", {
-        course_id: courseId,
+        room_id: roomId,
         title: title.trim(),
+        password: pwd.trim() || null,
+        opens_at: toUtcNaiveIso(opensAt),
+        closes_at: toUtcNaiveIso(closesAt),
         questions: questions.map((q) => {
           const options = q.options.filter((o) => o.trim());
           return {
@@ -295,132 +416,169 @@ function CreateQuizModal({
       </div>
 
       <div className="max-h-[64vh] overflow-y-auto px-5 py-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={t("quiz.titlePlaceholder")}
-            className="flex-1 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent"
-          />
-          <select
-            value={courseId ?? ""}
-            onChange={(e) => setCourseId(Number(e.target.value))}
-            className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
-          >
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* FR-QZ-05: Khu vực AI soạn nháp đề để Lecturer duyệt/sửa */}
-        <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/5 p-4">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent">
-            <IconSpark size={16} /> {t("quiz.aiTitle")}
-          </div>
-          <p className="mb-3 text-xs text-ink-faint">{t("quiz.aiHint")}</p>
-          <div className="flex flex-col gap-2 sm:flex-row">
+        {rooms.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-line bg-surface p-6 text-center text-sm text-ink-faint">
+            {t("quiz.noRooms")}
+          </p>
+        ) : (
+          <>
             <input
-              value={aiTopic}
-              onChange={(e) => setAiTopic(e.target.value)}
-              placeholder={t("quiz.aiTopicPlaceholder")}
-              className="flex-1 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t("quiz.titlePlaceholder")}
+              className="mb-3 w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent"
             />
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={aiNum}
-              onChange={(e) => setAiNum(Number(e.target.value))}
-              title={t("quiz.aiNumQuestions")}
-              placeholder={t("quiz.aiNumQuestions")}
-              className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:w-28"
-            />
-            <button
-              type="button"
-              onClick={generateAi}
-              disabled={aiBusy}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
-            >
-              <IconSpark size={15} />
-              {aiBusy ? t("quiz.aiGenerating") : t("quiz.aiGenerateBtn")}
-            </button>
-          </div>
-          {aiInfo && (
-            <p className="mt-2.5 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
-              {aiInfo}
-            </p>
-          )}
-        </div>
-
-        {questions.map((q, qi) => (
-          <div
-            key={qi}
-            className="mb-4 rounded-2xl border border-line bg-surface-2/40 p-4"
-          >
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-sm font-semibold text-ink-soft">
-                {t("quiz.questionN", { n: qi + 1 })}
-              </span>
-              {questions.length > 1 && (
-                <button
-                  onClick={() =>
-                    setQuestions((qs) => qs.filter((_, j) => j !== qi))
-                  }
-                  className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
-                  title={t("quiz.deleteQuestion")}
+            <div className="mb-3 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-xs text-ink-faint">
+                {t("quiz.room")}
+                <select
+                  value={roomId ?? ""}
+                  onChange={(e) => setRoomId(Number(e.target.value))}
+                  className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
                 >
-                  <IconTrash size={15} />
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} — {r.course_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ink-faint">
+                {t("quiz.password")}
+                <input
+                  value={pwd}
+                  onChange={(e) => setPwd(e.target.value)}
+                  placeholder={t("quiz.passwordPlaceholder")}
+                  className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ink-faint">
+                {t("quiz.opensAt")}
+                <input
+                  type="datetime-local"
+                  value={opensAt}
+                  onChange={(e) => setOpensAt(e.target.value)}
+                  className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ink-faint">
+                {t("quiz.closesAt")}
+                <input
+                  type="datetime-local"
+                  value={closesAt}
+                  onChange={(e) => setClosesAt(e.target.value)}
+                  className="rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+                />
+              </label>
+            </div>
+
+            {/* AI soạn nháp đề */}
+            <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/5 p-4">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent">
+                <IconSpark size={16} /> {t("quiz.aiTitle")}
+              </div>
+              <p className="mb-3 text-xs text-ink-faint">{t("quiz.aiHint")}</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  placeholder={t("quiz.aiTopicPlaceholder")}
+                  className="flex-1 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={aiNum}
+                  onChange={(e) => setAiNum(Number(e.target.value))}
+                  title={t("quiz.aiNumQuestions")}
+                  className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:w-28"
+                />
+                <button
+                  type="button"
+                  onClick={generateAi}
+                  disabled={aiBusy}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
+                >
+                  <IconSpark size={15} />
+                  {aiBusy ? t("quiz.aiGenerating") : t("quiz.aiGenerateBtn")}
                 </button>
+              </div>
+              {aiInfo && (
+                <p className="mt-2.5 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
+                  {aiInfo}
+                </p>
               )}
             </div>
-            <input
-              value={q.text}
-              onChange={(e) => patchQ(qi, { text: e.target.value })}
-              placeholder={t("quiz.questionContent")}
-              className="mb-3 w-full rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
-            />
-            <p className="mb-1.5 text-xs text-ink-faint">{t("quiz.markCorrect")}</p>
-            <div className="flex flex-col gap-2">
-              {q.options.map((opt, oi) => (
-                <div key={oi} className="flex items-center gap-2">
-                  <button
-                    onClick={() => patchQ(qi, { correct_index: oi })}
-                    title={t("quiz.correctAnswer")}
-                    className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-[11px] ${
-                      q.correct_index === oi
-                        ? "border-emerald-500 bg-emerald-500/15 text-emerald-600"
-                        : "border-ink-faint text-ink-faint"
-                    }`}
-                  >
-                    {q.correct_index === oi ? <IconCheck size={13} /> : String.fromCharCode(65 + oi)}
-                  </button>
-                  <input
-                    value={opt}
-                    onChange={(e) =>
-                      patchQ(qi, {
-                        options: q.options.map((o, j) =>
-                          j === oi ? e.target.value : o
-                        ),
-                      })
-                    }
-                    placeholder={t("quiz.optionN", { n: oi + 1 })}
-                    className="flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
 
-        <button
-          onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}
-          className="flex items-center gap-2 rounded-xl border border-dashed border-line px-3.5 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-surface-2"
-        >
-          <IconPlus size={16} /> {t("quiz.addQuestion")}
-        </button>
+            {questions.map((q, qi) => (
+              <div
+                key={qi}
+                className="mb-4 rounded-2xl border border-line bg-surface-2/40 p-4"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-sm font-semibold text-ink-soft">
+                    {t("quiz.questionN", { n: qi + 1 })}
+                  </span>
+                  {questions.length > 1 && (
+                    <button
+                      onClick={() =>
+                        setQuestions((qs) => qs.filter((_, j) => j !== qi))
+                      }
+                      className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
+                      title={t("quiz.deleteQuestion")}
+                    >
+                      <IconTrash size={15} />
+                    </button>
+                  )}
+                </div>
+                <input
+                  value={q.text}
+                  onChange={(e) => patchQ(qi, { text: e.target.value })}
+                  placeholder={t("quiz.questionContent")}
+                  className="mb-3 w-full rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
+                />
+                <p className="mb-1.5 text-xs text-ink-faint">{t("quiz.markCorrect")}</p>
+                <div className="flex flex-col gap-2">
+                  {q.options.map((opt, oi) => (
+                    <div key={oi} className="flex items-center gap-2">
+                      <button
+                        onClick={() => patchQ(qi, { correct_index: oi })}
+                        title={t("quiz.correctAnswer")}
+                        className={`grid h-6 w-6 flex-none place-items-center rounded-full border text-[11px] ${
+                          q.correct_index === oi
+                            ? "border-emerald-500 bg-emerald-500/15 text-emerald-600"
+                            : "border-ink-faint text-ink-faint"
+                        }`}
+                      >
+                        {q.correct_index === oi ? <IconCheck size={13} /> : String.fromCharCode(65 + oi)}
+                      </button>
+                      <input
+                        value={opt}
+                        onChange={(e) =>
+                          patchQ(qi, {
+                            options: q.options.map((o, j) =>
+                              j === oi ? e.target.value : o
+                            ),
+                          })
+                        }
+                        placeholder={t("quiz.optionN", { n: oi + 1 })}
+                        className="flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-accent"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}
+              className="flex items-center gap-2 rounded-xl border border-dashed border-line px-3.5 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-surface-2"
+            >
+              <IconPlus size={16} /> {t("quiz.addQuestion")}
+            </button>
+          </>
+        )}
 
         {error && (
           <p className="mt-3 rounded-xl bg-danger/10 px-4 py-2.5 text-sm text-danger">
