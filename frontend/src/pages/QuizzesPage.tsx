@@ -223,7 +223,7 @@ function CreateQuizModal({
     try {
       const { data } = await api.post<GeneratedQuiz>("/quizzes/generate", {
         course_id: courseId,
-        num_questions: aiNum,
+        num_questions: Math.min(50, Math.max(1, Math.floor(aiNum) || 1)),
         topic: aiTopic.trim() || null,
       });
       // Đổ nháp AID vào form để Lecturer chỉnh sửa (pad đủ 4 lựa chọn).
@@ -328,18 +328,16 @@ function CreateQuizModal({
               placeholder={t("quiz.aiTopicPlaceholder")}
               className="flex-1 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
             />
-            <select
+            <input
+              type="number"
+              min={1}
+              max={50}
               value={aiNum}
               onChange={(e) => setAiNum(Number(e.target.value))}
               title={t("quiz.aiNumQuestions")}
-              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
-            >
-              {[3, 5, 8, 10].map((n) => (
-                <option key={n} value={n}>
-                  {t("quiz.numQuestions", { n })}
-                </option>
-              ))}
-            </select>
+              placeholder={t("quiz.aiNumQuestions")}
+              className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent sm:w-28"
+            />
             <button
               type="button"
               onClick={generateAi}

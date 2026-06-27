@@ -24,7 +24,7 @@ class QuizCreate(BaseModel):
 # FR-QZ-05: Yêu cầu AI soạn nháp đề (Lecturer duyệt/sửa trước khi lưu).
 class QuizGenerateRequest(BaseModel):
     course_id: int
-    num_questions: int = Field(default=5, ge=1, le=20)
+    num_questions: int = Field(default=5, ge=1, le=50)
     topic: str | None = Field(default=None, max_length=300)
 
 
