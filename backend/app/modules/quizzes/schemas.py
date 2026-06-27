@@ -16,15 +16,20 @@ class QuestionIn(BaseModel):
 
 
 class QuizCreate(BaseModel):
-    course_id: int
+    # FR-ROOM: quiz luôn thuộc 1 phòng học; môn học suy ra từ phòng.
+    room_id: int
     title: str = Field(min_length=1, max_length=200)
     questions: list[QuestionIn] = Field(min_length=1, max_length=50)
+    # Mật khẩu vào quiz (tuỳ chọn) và hạn mở/đóng (tuỳ chọn).
+    password: str | None = Field(default=None, max_length=255)
+    opens_at: datetime | None = None
+    closes_at: datetime | None = None
 
 
 # FR-QZ-05: Yêu cầu AI soạn nháp đề (Lecturer duyệt/sửa trước khi lưu).
 class QuizGenerateRequest(BaseModel):
     course_id: int
-    num_questions: int = Field(default=5, ge=1, le=20)
+    num_questions: int = Field(default=5, ge=1, le=50)
     topic: str | None = Field(default=None, max_length=300)
 
 
@@ -38,9 +43,19 @@ class GeneratedQuiz(BaseModel):
 class QuizOut(BaseModel):
     id: int
     course_id: int
+    room_id: int | None = None
+    room_name: str | None = None
     title: str
     num_questions: int
+    has_password: bool = False
+    opens_at: datetime | None = None
+    closes_at: datetime | None = None
     created_at: datetime
+
+
+# Chỉ Lecturer/Admin xem lại mật khẩu quiz.
+class QuizPasswordOut(BaseModel):
+    password: str | None = None
 
 
 # Dạng cho học sinh LÀM BÀI — KHÔNG lộ đáp án đúng.

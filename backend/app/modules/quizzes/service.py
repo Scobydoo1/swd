@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -21,9 +22,11 @@ from app.modules.quizzes.schemas import (
     QuizDetail,
     QuizGenerateRequest,
     QuizOut,
+    QuizPasswordOut,
     ReviewQuestion,
 )
 from app.modules.rag.facade import RagFacade
+from app.modules.rooms.repository import RoomRepository
 from app.modules.users.models import Role, User
 
 # FR-QZ-05: System prompt buộc AI trả về JSON thuần để parse được an toàn.
@@ -47,7 +50,26 @@ class QuizService:
         self.repo = QuizRepository(db)
 
     def create(self, payload: QuizCreate, user: User) -> QuizOut:
-        quiz = self.repo.create(payload, created_by=user.id)
+        # FR-ROOM: quiz gắn 1 phòng; chỉ người tạo phòng / Admin được giao quiz.
+        room = RoomRepository(self.db).get(payload.room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Không tìm thấy phòng học")
+        if user.role != Role.ADMIN and room.created_by != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Chỉ người tạo phòng hoặc Admin được giao quiz cho phòng",
+            )
+        if (
+            payload.opens_at
+            and payload.closes_at
+            and payload.closes_at <= payload.opens_at
+        ):
+            raise HTTPException(
+                status_code=400, detail="Hạn đóng phải sau hạn mở"
+            )
+        quiz = self.repo.create(
+            payload, course_id=room.course_id, created_by=user.id
+        )
         return self._to_out(quiz)
 
     # FR-QZ-05: AI soạn NHÁP đề từ tài liệu môn học để Lecturer duyệt/sửa.
@@ -129,8 +151,25 @@ class QuizService:
     def list(self, course_id: int | None) -> list[QuizOut]:
         return [self._to_out(q) for q in self.repo.list(course_id)]
 
-    def get_detail(self, quiz_id: int) -> QuizDetail:
+    # Danh sách quiz theo vai trò: Admin tất cả; Lecturer quiz mình tạo;
+    # Sinh viên quiz của các phòng mình tham gia.
+    def list_for(self, user: User) -> list[QuizOut]:
+        if user.role == Role.ADMIN:
+            quizzes = self.repo.list()
+        elif user.role == Role.LECTURER:
+            quizzes = self.repo.list_created_by(user.id)
+        else:
+            quizzes = self.repo.list_for_member(user.id)
+        return [self._to_out(q) for q in quizzes]
+
+    def list_for_room(self, room_id: int) -> list[QuizOut]:
+        return [self._to_out(q) for q in self.repo.list_by_room(room_id)]
+
+    def get_detail(
+        self, quiz_id: int, user: User, password: str | None = None
+    ) -> QuizDetail:
         quiz = self._require(quiz_id)
+        self._check_take_access(quiz, user, password)
         return QuizDetail(
             id=quiz.id,
             course_id=quiz.course_id,
@@ -142,6 +181,43 @@ class QuizService:
                 for q in quiz.questions
             ],
         )
+
+    # FR-QZ: Mật khẩu chỉ Lecturer (người tạo) / Admin xem lại được.
+    def get_password(self, quiz_id: int, user: User) -> QuizPasswordOut:
+        quiz = self._require(quiz_id)
+        if user.role != Role.ADMIN and quiz.created_by != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Chỉ người tạo quiz hoặc Admin được xem mật khẩu",
+            )
+        return QuizPasswordOut(password=quiz.password)
+
+    # Kiểm soát quyền vào làm quiz: thành viên phòng + còn hạn + đúng mật khẩu.
+    def _check_take_access(
+        self,
+        quiz: Quiz,
+        user: User,
+        password: str | None,
+        require_password: bool = True,
+    ) -> None:
+        # Người quản lý (Admin / người tạo) luôn xem & thử đề được.
+        if user.role == Role.ADMIN or quiz.created_by == user.id:
+            return
+        if quiz.room_id is None or not RoomRepository(self.db).get_member(
+            quiz.room_id, user.id
+        ):
+            raise HTTPException(
+                status_code=403, detail="Bạn không thuộc lớp của quiz này"
+            )
+        now = datetime.utcnow()
+        if quiz.opens_at and now < quiz.opens_at:
+            raise HTTPException(status_code=403, detail="Quiz chưa mở")
+        if quiz.closes_at and now > quiz.closes_at:
+            raise HTTPException(
+                status_code=403, detail="Quiz đã đóng (quá hạn nộp)"
+            )
+        if require_password and quiz.password and password != quiz.password:
+            raise HTTPException(status_code=403, detail="Sai mật khẩu quiz")
 
     @staticmethod
     def _grade(
@@ -174,6 +250,8 @@ class QuizService:
         self, quiz_id: int, answers: list[int], user: User
     ) -> AttemptResult:
         quiz = self._require(quiz_id)
+        # Còn hạn + đúng lớp (đã nhập mật khẩu lúc mở đề nên bỏ qua mật khẩu).
+        self._check_take_access(quiz, user, None, require_password=False)
         score, correct, total, results = self._grade(quiz, answers)
         # FR-QZ-03: Chỉ lưu điểm của Sinh viên — Lecturer/Admin xem thử đề
         # không ghi attempt để bảng kết quả của lớp không bị nhiễu.
@@ -274,12 +352,20 @@ class QuizService:
             raise HTTPException(status_code=404, detail="Không tìm thấy quiz")
         return quiz
 
-    @staticmethod
-    def _to_out(quiz) -> QuizOut:
+    def _to_out(self, quiz) -> QuizOut:
+        room_name = None
+        if quiz.room_id is not None:
+            room = RoomRepository(self.db).get(quiz.room_id)
+            room_name = room.name if room else None
         return QuizOut(
             id=quiz.id,
             course_id=quiz.course_id,
+            room_id=quiz.room_id,
+            room_name=room_name,
             title=quiz.title,
             num_questions=len(quiz.questions),
+            has_password=bool(quiz.password),
+            opens_at=quiz.opens_at,
+            closes_at=quiz.closes_at,
             created_at=quiz.created_at,
         )

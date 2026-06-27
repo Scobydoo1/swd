@@ -11,7 +11,17 @@ class Quiz(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"))
+    # FR-ROOM: Quiz thuộc về một phòng học (lớp). Nullable cho dữ liệu cũ;
+    # quiz tạo mới luôn gắn room. Chỉ thành viên phòng thấy & làm được.
+    room_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rooms.id"), nullable=True
+    )
     title: Mapped[str] = mapped_column(String(255))
+    # Mật khẩu vào quiz (tuỳ chọn) — chỉ Lecturer/Admin xem lại được.
+    password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Hạn nộp: ngoài [opens_at, closes_at] thì Sinh viên không làm được.
+    opens_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    closes_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )

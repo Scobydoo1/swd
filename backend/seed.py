@@ -109,9 +109,28 @@ def run():
             db.commit()
             print(f"Đã tạo môn học demo (id={course.id}) + {len(chapters)} chương.")
 
-        if course and not db.query(Quiz).first():
+        # Phòng học demo: Lecturer tạo, mời sẵn Student vào (tạo TRƯỚC quiz vì
+        # quiz nay gắn theo phòng).
+        student = db.query(User).filter(User.email == "student@demo.com").first()
+        room = db.query(Room).first()
+        if course and not room:
+            room = Room(
+                name="Lớp SE101 — Software Modeling",
+                description="Phòng học demo: quiz + tài liệu môn Software Modeling and Design",
+                course_id=course.id,
+                created_by=lecturer.id if lecturer else None,
+            )
+            db.add(room)
+            db.flush()
+            if student:
+                db.add(RoomMember(room_id=room.id, user_id=student.id))
+            db.commit()
+            print(f"Đã tạo phòng học demo (id={room.id}) + mời sinh viên demo.")
+
+        if course and room and not db.query(Quiz).first():
             quiz = Quiz(
                 course_id=course.id,
+                room_id=room.id,
                 title=DEMO_QUIZ["title"],
                 created_by=lecturer.id if lecturer else None,
             )
@@ -127,25 +146,9 @@ def run():
             db.add(quiz)
             db.commit()
             print(
-                f"Đã tạo quiz demo (id={quiz.id}) "
+                f"Đã tạo quiz demo (id={quiz.id}) gắn phòng {room.id} "
                 f"+ {len(DEMO_QUIZ['questions'])} câu hỏi."
             )
-
-        # Phòng học demo: Lecturer tạo, mời sẵn Student vào.
-        student = db.query(User).filter(User.email == "student@demo.com").first()
-        if course and not db.query(Room).first():
-            room = Room(
-                name="Lớp SE101 — Software Modeling",
-                description="Phòng học demo: quiz + tài liệu môn Software Modeling and Design",
-                course_id=course.id,
-                created_by=lecturer.id if lecturer else None,
-            )
-            db.add(room)
-            db.flush()
-            if student:
-                db.add(RoomMember(room_id=room.id, user_id=student.id))
-            db.commit()
-            print(f"Đã tạo phòng học demo (id={room.id}) + mời sinh viên demo.")
 
         print("Seed xong. Tài khoản demo:")
         for email, pwd, _, role in DEMO_USERS:

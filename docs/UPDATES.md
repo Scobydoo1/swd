@@ -61,7 +61,34 @@ AI sinh **nháp** đề từ tài liệu môn → đề đổ vào form để **
 (qua `POST /api/quizzes` như bình thường). AI **không tự lưu**.
 
 **Backend:** `POST /api/quizzes/generate` (Lecturer/Admin) → `GeneratedQuiz`.
-- Lấy ngữ cảnh bằng `RagFacade.retrieve(topic, k=8, course_id)`.
+- **Đọc tài liệu của môn**: lấy ngữ cảnh bằng `RagFacade.retrieve(topic, k=8, course_id)`
+  rồi đưa vào prompt — câu hỏi bám sát nội dung tài liệu đã index của môn đó.
 - Gemini (qua `llm/` wrapper) được ép trả JSON; `QuizService._parse_generated()`
   bóc mảng JSON, validate từng câu bằng `QuestionIn` (bỏ câu sai, giữ phần hợp lệ).
 - Cần bật Gemini (`LLM_PROVIDER=gemini`); chế độ `local` trả `400` báo rõ.
+
+## 6. Phòng học = Lớp học online (room-scoped quiz)
+
+Nâng **Rooms** thành lớp học online; quiz gắn theo **từng phòng** thay vì theo môn.
+
+**Mô hình:** `Quiz` thêm `room_id` (bắt buộc khi tạo mới), `password` (tuỳ chọn,
+chỉ Lecturer/Admin xem lại), `opens_at`/`closes_at` (hạn nộp). Bảng mới
+`room_announcements` (bảng tin). Migration nhẹ trong `database.py`.
+
+**Quy tắc hiển thị & truy cập** (`QuizService`):
+- Danh sách quiz theo vai trò: Admin tất cả · Lecturer quiz mình tạo · Sinh viên
+  quiz của **các phòng mình tham gia** (gom nhóm theo phòng).
+- Mở/nộp quiz: Sinh viên phải là **thành viên phòng**, còn trong **hạn**, và nhập
+  **đúng mật khẩu** (nếu có). Người quản lý (người tạo/Admin) luôn xem thử được.
+- `GET /api/quizzes/{id}/password` — chỉ Lecturer (người tạo)/Admin xem lại mật khẩu.
+
+**Lớp học online** (`rooms`): `POST/DELETE /api/rooms/{id}/announcements` (bảng tin),
+`GET /api/rooms/{id}/grades` (bảng điểm tổng của lớp cho Lecturer). `RoomDetail`
+trả quiz **của phòng** + bảng tin. Tạo quiz: chọn phòng + đặt mật khẩu + hạn nộp
+ngay trong form (frontend `QuizzesPage`); Sinh viên làm bài **trong từng Room**
+(`RoomDetailPage`) với hộp nhập mật khẩu khi cần.
+
+## 7. Tài liệu theo từng môn
+
+`DocumentsPage` chỉ tải tài liệu của **môn đang chọn** (`GET /documents?course_id=`).
+Tạo môn mới sẽ bắt đầu với kho tài liệu trống, không lẫn tài liệu của môn cũ.

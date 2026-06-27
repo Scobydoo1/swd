@@ -223,7 +223,7 @@ export function AppLayout() {
           {!isAdmin && (
             <NavItem to="/rooms" label={t("nav.rooms")} icon={<IconRoom size={19} />} onClick={closeOnMobile} />
           )}
-          {!isAdmin && (
+          {isLecturer && (
             <NavItem to="/quizzes" label={t("nav.quiz")} icon={<IconQuiz size={19} />} onClick={closeOnMobile} />
           )}
           {isStudent && (

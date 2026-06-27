@@ -8,9 +8,11 @@ from app.modules.quizzes.service import QuizService
 from app.modules.rooms.models import Room
 from app.modules.rooms.repository import RoomRepository
 from app.modules.rooms.schemas import (
+    AnnouncementOut,
     MemberOut,
     RoomCreate,
     RoomDetail,
+    RoomGradeRow,
     RoomOut,
     StudentOut,
 )
@@ -61,10 +63,15 @@ class RoomService:
                         added_at=m.added_at,
                     )
                 )
-        quizzes = QuizService(self.db).list(room.course_id)
+        # Quiz gắn riêng phòng này (không còn dùng chung toàn môn).
+        quizzes = QuizService(self.db).list_for_room(room.id)
         documents = [
             DocumentOut.model_validate(d)
             for d in DocumentService(self.db).list(room.course_id)
+        ]
+        announcements = [
+            self._announcement_out(a)
+            for a in self.repo.list_announcements(room.id)
         ]
         base = self._to_out(room)
         return RoomDetail(
@@ -72,7 +79,45 @@ class RoomService:
             members=members,
             quizzes=quizzes,
             documents=documents,
+            announcements=announcements,
         )
+
+    # FR-ROOM-05: Đăng / xoá thông báo (chỉ người tạo phòng / Admin).
+    def add_announcement(
+        self, room_id: int, content: str, user: User
+    ) -> AnnouncementOut:
+        self._require_manage(room_id, user)
+        ann = self.repo.add_announcement(room_id, user.id, content)
+        return self._announcement_out(ann)
+
+    def delete_announcement(self, room_id: int, ann_id: int, user: User) -> None:
+        self._require_manage(room_id, user)
+        ann = self.repo.get_announcement(ann_id)
+        if not ann or ann.room_id != room_id:
+            raise HTTPException(
+                status_code=404, detail="Không tìm thấy thông báo"
+            )
+        self.repo.remove_announcement(ann)
+
+    # FR-ROOM-06: Bảng điểm tổng của lớp — mọi lượt làm của mọi quiz trong phòng.
+    def room_grades(self, room_id: int, user: User) -> list[RoomGradeRow]:
+        self._require_manage(room_id, user)
+        rows: list[RoomGradeRow] = []
+        quiz_service = QuizService(self.db)
+        for quiz in quiz_service.repo.list_by_room(room_id):
+            for attempt, u in quiz_service.repo.list_attempts(quiz.id):
+                rows.append(
+                    RoomGradeRow(
+                        quiz_id=quiz.id,
+                        quiz_title=quiz.title,
+                        user_id=attempt.user_id,
+                        student_name=u.full_name if u else None,
+                        student_email=u.email if u else None,
+                        score=attempt.score,
+                        created_at=attempt.created_at,
+                    )
+                )
+        return rows
 
     # FR-ROOM-04: Người tạo phòng / Admin mời Sinh viên qua email.
     def invite(self, room_id: int, email: str, user: User) -> MemberOut:
@@ -109,6 +154,10 @@ class RoomService:
 
     def delete(self, room_id: int, user: User) -> None:
         room = self._require_manage(room_id, user)
+        # Xoá quiz gắn phòng (kèm câu hỏi + lượt làm) để không còn bản mồ côi.
+        quiz_repo = QuizService(self.db).repo
+        for quiz in quiz_repo.list_by_room(room.id):
+            quiz_repo.delete(quiz)
         self.repo.delete(room)
 
     # Danh sách Sinh viên để Lecturer/Admin chọn khi mời.
@@ -146,9 +195,18 @@ class RoomService:
             )
         return room
 
+    def _announcement_out(self, ann) -> AnnouncementOut:
+        author = self.users.get(ann.author_id) if ann.author_id else None
+        return AnnouncementOut(
+            id=ann.id,
+            content=ann.content,
+            author_name=author.full_name if author else None,
+            created_at=ann.created_at,
+        )
+
     def _to_out(self, room: Room) -> RoomOut:
         course = self.courses.get(room.course_id)
-        num_quizzes = len(QuizService(self.db).list(room.course_id))
+        num_quizzes = len(QuizService(self.db).repo.list_by_room(room.id))
         return RoomOut(
             id=room.id,
             name=room.name,

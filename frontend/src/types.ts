@@ -11,8 +11,13 @@ export interface User {
 export interface QuizListItem {
   id: number;
   course_id: number;
+  room_id: number | null;
+  room_name: string | null;
   title: string;
   num_questions: number;
+  has_password: boolean;
+  opens_at: string | null;
+  closes_at: string | null;
   created_at: string;
 }
 
@@ -119,10 +124,28 @@ export interface RoomStudent {
   email: string;
 }
 
+export interface Announcement {
+  id: number;
+  content: string;
+  author_name: string | null;
+  created_at: string;
+}
+
 export interface RoomDetail extends Room {
   members: RoomMember[];
   quizzes: QuizListItem[];
   documents: Document[];
+  announcements: Announcement[];
+}
+
+export interface RoomGradeRow {
+  quiz_id: number;
+  quiz_title: string;
+  user_id: number | null;
+  student_name: string | null;
+  student_email: string | null;
+  score: number;
+  created_at: string;
 }
 
 export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";

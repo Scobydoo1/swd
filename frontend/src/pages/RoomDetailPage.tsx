@@ -3,11 +3,13 @@ import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useLang } from "../i18n/LanguageContext";
+import { formatDateTimeVN } from "../lib/datetime";
 import {
   IconChart,
   IconChevron,
   IconClose,
   IconFile,
+  IconPlus,
   IconQuiz,
   IconRoom,
   IconSidebar,
@@ -24,12 +26,20 @@ import type {
   QuizDetail,
   QuizListItem,
   RoomDetail,
+  RoomGradeRow,
   RoomStudent,
 } from "../types";
 
 type Ctx = { openSidebar: () => void };
 
-// FR-ROOM-03: Chi tiết phòng học — thành viên + quiz + tài liệu của môn.
+function quizClosed(q: QuizListItem): boolean {
+  return !!q.closes_at && new Date(q.closes_at + "Z").getTime() < Date.now();
+}
+function quizNotOpen(q: QuizListItem): boolean {
+  return !!q.opens_at && new Date(q.opens_at + "Z").getTime() > Date.now();
+}
+
+// FR-ROOM-03: Lớp học online — bảng tin, quiz (mật khẩu/hạn), bảng điểm, tài liệu.
 export function RoomDetailPage() {
   const { openSidebar } = useOutletContext<Ctx>();
   const { id } = useParams();
@@ -43,6 +53,9 @@ export function RoomDetailPage() {
   const [viewingResults, setViewingResults] = useState<QuizListItem | null>(
     null
   );
+  const [pwPrompt, setPwPrompt] = useState<QuizListItem | null>(null);
+  const [showGrades, setShowGrades] = useState(false);
+  const [annText, setAnnText] = useState("");
 
   const canManage =
     !!user &&
@@ -66,9 +79,31 @@ export function RoomDetailPage() {
     load();
   };
 
-  const openTake = async (quizId: number) => {
-    const { data } = await api.get<QuizDetail>(`/quizzes/${quizId}`);
+  // Mở quiz: nếu có mật khẩu và là Sinh viên thì hỏi mật khẩu trước.
+  const tryOpen = (q: QuizListItem) => {
+    if (q.has_password && !canManage) setPwPrompt(q);
+    else openTake(q);
+  };
+
+  const openTake = async (q: QuizListItem, password?: string) => {
+    const { data } = await api.get<QuizDetail>(`/quizzes/${q.id}`, {
+      params: password ? { password } : undefined,
+    });
     setTaking(data);
+    setPwPrompt(null);
+  };
+
+  const postAnnouncement = async () => {
+    if (!annText.trim()) return;
+    await api.post(`/rooms/${id}/announcements`, { content: annText.trim() });
+    setAnnText("");
+    load();
+  };
+
+  const deleteAnnouncement = async (annId: number) => {
+    if (!confirm(t("rooms.deleteAnnouncementConfirm"))) return;
+    await api.delete(`/rooms/${id}/announcements/${annId}`);
+    load();
   };
 
   if (!room)
@@ -104,7 +139,7 @@ export function RoomDetailPage() {
             <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-accent/10 text-accent">
               <IconRoom size={24} />
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h1 className="font-display text-2xl font-bold text-ink">
                 {room.name}
               </h1>
@@ -113,8 +148,76 @@ export function RoomDetailPage() {
                 {room.description ? ` — ${room.description}` : ""}
               </p>
             </div>
+            {canManage && (
+              <button
+                onClick={() => setShowGrades(true)}
+                className="flex flex-none items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink-soft transition hover:border-accent/60 hover:text-accent"
+              >
+                <IconChart size={16} /> {t("rooms.grades")}
+              </button>
+            )}
           </div>
         </header>
+
+        {/* Bảng tin / thông báo */}
+        <section className="mb-6 rounded-[18px] border border-line bg-surface p-5 shadow-maple-sm">
+          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink">
+            <span className="text-accent">
+              <IconRoom size={18} />
+            </span>
+            {t("rooms.announcements")} ({room.announcements.length})
+          </h2>
+          {canManage && (
+            <div className="mb-3 flex gap-2">
+              <textarea
+                value={annText}
+                onChange={(e) => setAnnText(e.target.value)}
+                placeholder={t("rooms.announcementPlaceholder")}
+                rows={2}
+                className="flex-1 resize-none rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
+              />
+              <button
+                onClick={postAnnouncement}
+                disabled={!annText.trim()}
+                className="flex-none rounded-xl bg-accent px-4 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
+              >
+                {t("rooms.post")}
+              </button>
+            </div>
+          )}
+          {room.announcements.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-line p-4 text-center text-sm text-ink-faint">
+              {t("rooms.noAnnouncements")}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {room.announcements.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-start gap-3 rounded-xl border border-line bg-surface-2/40 px-3.5 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="whitespace-pre-wrap text-sm text-ink">
+                      {a.content}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-faint">
+                      {a.author_name ?? "—"} · {formatDateTimeVN(a.created_at)}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <button
+                      onClick={() => deleteAnnouncement(a.id)}
+                      className="grid h-8 w-8 flex-none place-items-center rounded-lg text-ink-faint transition hover:bg-danger/10 hover:text-danger"
+                      title={t("common.delete")}
+                    >
+                      <IconTrash size={15} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* Thành viên */}
         <section className="mb-6 rounded-[18px] border border-line bg-surface p-5 shadow-maple-sm">
@@ -171,49 +274,75 @@ export function RoomDetailPage() {
           )}
         </section>
 
-        {/* Quiz của môn */}
+        {/* Quiz của lớp */}
         <section className="mb-6 rounded-[18px] border border-line bg-surface p-5 shadow-maple-sm">
-          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink">
-            <span className="text-accent">
-              <IconQuiz size={18} />
-            </span>
-            {t("rooms.quizzesTitle")} ({room.quizzes.length})
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 font-semibold text-ink">
+              <span className="text-accent">
+                <IconQuiz size={18} />
+              </span>
+              {t("rooms.quizzesTitle")} ({room.quizzes.length})
+            </h2>
+            {canManage && (
+              <button
+                onClick={() => navigate("/quizzes")}
+                className="flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-accent transition hover:border-accent/60"
+              >
+                <IconPlus size={15} /> {t("rooms.createQuiz")}
+              </button>
+            )}
+          </div>
           {room.quizzes.length === 0 ? (
             <p className="rounded-xl border border-dashed border-line p-4 text-center text-sm text-ink-faint">
               {t("rooms.noQuizzes")}
             </p>
           ) : (
             <div className="flex flex-col gap-2">
-              {room.quizzes.map((q) => (
-                <div
-                  key={q.id}
-                  className="flex items-center gap-3 rounded-xl border border-line bg-surface-2/40 px-3.5 py-2.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-ink">
-                      {q.title}
-                    </div>
-                    <div className="text-xs text-ink-faint">
-                      {t("quiz.numQuestions", { n: q.num_questions })}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => openTake(q.id)}
-                    className="flex-none rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition hover:border-accent/60"
+              {room.quizzes.map((q) => {
+                const closed = quizClosed(q);
+                const notOpen = quizNotOpen(q);
+                const blocked = !canManage && (closed || notOpen);
+                return (
+                  <div
+                    key={q.id}
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/40 px-3.5 py-2.5"
                   >
-                    {canManage ? t("quiz.viewTry") : t("quiz.take")}
-                  </button>
-                  {canManage && (
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-ink">
+                        {q.title}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint">
+                        <span>{t("quiz.numQuestions", { n: q.num_questions })}</span>
+                        {q.has_password && <span>· 🔒 {t("quiz.locked")}</span>}
+                        {closed && (
+                          <span className="text-danger">· {t("quiz.closed")}</span>
+                        )}
+                        {notOpen && <span>· {t("quiz.notOpen")}</span>}
+                        {q.closes_at && !closed && (
+                          <span>
+                            · {t("quiz.due", { time: formatDateTimeVN(q.closes_at) })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     <button
-                      onClick={() => setViewingResults(q)}
-                      className="flex flex-none items-center gap-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:border-accent/60 hover:text-accent"
+                      onClick={() => tryOpen(q)}
+                      disabled={blocked}
+                      className="flex-none rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition hover:border-accent/60 disabled:opacity-40"
                     >
-                      <IconChart size={14} /> {t("quiz.results")}
+                      {canManage ? t("quiz.viewTry") : t("quiz.take")}
                     </button>
-                  )}
-                </div>
-              ))}
+                    {canManage && (
+                      <button
+                        onClick={() => setViewingResults(q)}
+                        className="flex flex-none items-center gap-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:border-accent/60 hover:text-accent"
+                      >
+                        <IconChart size={14} /> {t("quiz.results")}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -275,6 +404,13 @@ export function RoomDetailPage() {
           }}
         />
       )}
+      {pwPrompt && (
+        <PasswordPrompt
+          quiz={pwPrompt}
+          onClose={() => setPwPrompt(null)}
+          onUnlock={(pwd) => openTake(pwPrompt, pwd)}
+        />
+      )}
       {taking && (
         <TakeQuizModal quiz={taking} onClose={() => setTaking(null)} />
       )}
@@ -285,7 +421,167 @@ export function RoomDetailPage() {
           onClose={() => setViewingResults(null)}
         />
       )}
+      {showGrades && (
+        <GradeOverviewModal
+          roomId={room.id}
+          roomName={room.name}
+          onClose={() => setShowGrades(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/* ---------------- Password prompt (FR-QZ) ---------------- */
+function PasswordPrompt({
+  quiz,
+  onClose,
+  onUnlock,
+}: {
+  quiz: QuizListItem;
+  onClose: () => void;
+  onUnlock: (pwd: string) => Promise<void>;
+}) {
+  const { t } = useLang();
+  const [pwd, setPwd] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await onUnlock(pwd);
+    } catch (e: any) {
+      setError(e.response?.data?.detail ?? t("quiz.wrongPassword"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Overlay onClose={onClose}>
+      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <h2 className="font-display text-lg font-bold text-ink">{quiz.title}</h2>
+        <button
+          onClick={onClose}
+          className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2 hover:text-ink"
+        >
+          <IconClose size={18} />
+        </button>
+      </div>
+      <div className="px-5 py-5">
+        <p className="mb-2 text-sm text-ink-soft">{t("quiz.enterPassword")}</p>
+        <input
+          type="password"
+          value={pwd}
+          autoFocus
+          onChange={(e) => setPwd(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none focus:border-accent"
+        />
+        {error && (
+          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
+            {error}
+          </p>
+        )}
+        <button
+          onClick={submit}
+          disabled={busy || !pwd}
+          className="mt-3 w-full rounded-xl bg-accent py-2.5 font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
+        >
+          {t("quiz.unlock")}
+        </button>
+      </div>
+    </Overlay>
+  );
+}
+
+/* ---------------- Class grade overview (FR-ROOM-06) ---------------- */
+function GradeOverviewModal({
+  roomId,
+  roomName,
+  onClose,
+}: {
+  roomId: number;
+  roomName: string;
+  onClose: () => void;
+}) {
+  const { t } = useLang();
+  const [rows, setRows] = useState<RoomGradeRow[] | null>(null);
+
+  useEffect(() => {
+    api
+      .get<RoomGradeRow[]>(`/rooms/${roomId}/grades`)
+      .then((r) => setRows(r.data))
+      .catch(() => setRows([]));
+  }, [roomId]);
+
+  return (
+    <Overlay onClose={onClose}>
+      <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <h2 className="font-display text-lg font-bold text-ink">
+          {t("rooms.gradesTitle", { name: roomName })}
+        </h2>
+        <button
+          onClick={onClose}
+          className="grid h-8 w-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2 hover:text-ink"
+        >
+          <IconClose size={18} />
+        </button>
+      </div>
+      <div className="max-h-[60vh] overflow-y-auto px-5 py-5">
+        {rows === null ? (
+          <p className="text-sm text-ink-faint">…</p>
+        ) : rows.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-ink-faint">
+            {t("rooms.noGrades")}
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-ink-faint">
+                <th className="pb-2 font-semibold">{t("quiz.colStudent")}</th>
+                <th className="pb-2 font-semibold">{t("rooms.colQuiz")}</th>
+                <th className="pb-2 font-semibold">{t("quiz.colScore")}</th>
+                <th className="pb-2 font-semibold">{t("quiz.colTime")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-t border-line-soft">
+                  <td className="py-2.5">
+                    <div className="font-medium text-ink">
+                      {r.student_name ?? t("quiz.deletedUser")}
+                    </div>
+                    {r.student_email && (
+                      <div className="text-xs text-ink-faint">
+                        {r.student_email}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-2.5 text-ink-soft">{r.quiz_title}</td>
+                  <td className="py-2.5">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                        r.score >= 50
+                          ? "bg-emerald-500/10 text-emerald-600"
+                          : "bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {r.score}%
+                    </span>
+                  </td>
+                  <td className="py-2.5 text-ink-faint">
+                    {formatDateTimeVN(r.created_at)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </Overlay>
   );
 }
 

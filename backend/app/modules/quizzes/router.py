@@ -12,6 +12,7 @@ from app.modules.quizzes.schemas import (
     QuizDetail,
     QuizGenerateRequest,
     QuizOut,
+    QuizPasswordOut,
     SubmitRequest,
 )
 from app.modules.quizzes.service import QuizService
@@ -41,14 +42,14 @@ def generate_quiz(
     return QuizService(db).generate(payload)
 
 
-# Mọi người xem danh sách quiz (lọc theo môn nếu cần).
+# Danh sách quiz theo vai trò: Admin tất cả; Lecturer quiz mình tạo; SV quiz
+# của các phòng mình tham gia (gom nhóm theo phòng ở frontend).
 @router.get("", response_model=list[QuizOut])
 def list_quizzes(
-    course_id: int | None = None,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
-    return QuizService(db).list(course_id)
+    return QuizService(db).list_for(user)
 
 
 # FR-QZ: Bảng điểm của chính mình (mọi lượt làm, lọc theo môn nếu có).
@@ -72,14 +73,25 @@ def review_attempt(
     return QuizService(db).get_attempt_review(attempt_id, user)
 
 
-# FR-STU: Sinh viên mở quiz để làm (đáp án đúng được ẩn).
+# FR-QZ: Lecturer/Admin xem lại mật khẩu quiz. Đặt trước "/{quiz_id}".
+@router.get("/{quiz_id}/password", response_model=QuizPasswordOut)
+def get_quiz_password(
+    quiz_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
+):
+    return QuizService(db).get_password(quiz_id, user)
+
+
+# FR-STU: Sinh viên mở quiz để làm (đáp án đúng được ẩn). Có thể cần mật khẩu.
 @router.get("/{quiz_id}", response_model=QuizDetail)
 def get_quiz(
     quiz_id: int,
+    password: str | None = None,
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
-    return QuizService(db).get_detail(quiz_id)
+    return QuizService(db).get_detail(quiz_id, user, password)
 
 
 # FR-STU: Nộp bài và chấm điểm.

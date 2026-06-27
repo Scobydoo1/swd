@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.modules.rooms.models import Room, RoomMember
+from app.modules.rooms.models import Announcement, Room, RoomMember
 
 
 class RoomRepository:
@@ -64,5 +64,40 @@ class RoomRepository:
 
     def delete(self, room: Room) -> None:
         # members xóa theo cascade ORM (delete-orphan).
+        self.db.query(Announcement).filter(
+            Announcement.room_id == room.id
+        ).delete()
         self.db.delete(room)
+        self.db.commit()
+
+    # ---- Bảng tin / thông báo ----
+
+    def list_announcements(self, room_id: int) -> list[Announcement]:
+        return (
+            self.db.query(Announcement)
+            .filter(Announcement.room_id == room_id)
+            .order_by(Announcement.created_at.desc())
+            .all()
+        )
+
+    def add_announcement(
+        self, room_id: int, author_id: int | None, content: str
+    ) -> Announcement:
+        ann = Announcement(
+            room_id=room_id, author_id=author_id, content=content
+        )
+        self.db.add(ann)
+        self.db.commit()
+        self.db.refresh(ann)
+        return ann
+
+    def get_announcement(self, ann_id: int) -> Announcement | None:
+        return (
+            self.db.query(Announcement)
+            .filter(Announcement.id == ann_id)
+            .first()
+        )
+
+    def remove_announcement(self, ann: Announcement) -> None:
+        self.db.delete(ann)
         self.db.commit()

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt
 from app.modules.quizzes.schemas import QuizCreate
+from app.modules.rooms.models import RoomMember
 from app.modules.users.models import User
 
 
@@ -11,10 +12,16 @@ class QuizRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, payload: QuizCreate, created_by: int | None) -> Quiz:
+    def create(
+        self, payload: QuizCreate, course_id: int, created_by: int | None
+    ) -> Quiz:
         quiz = Quiz(
-            course_id=payload.course_id,
+            course_id=course_id,
+            room_id=payload.room_id,
             title=payload.title,
+            password=(payload.password or None),
+            opens_at=payload.opens_at,
+            closes_at=payload.closes_at,
             created_by=created_by,
         )
         for i, q in enumerate(payload.questions):
@@ -39,6 +46,32 @@ class QuizRepository:
         if course_id is not None:
             q = q.filter(Quiz.course_id == course_id)
         return q.order_by(Quiz.created_at.desc()).all()
+
+    def list_by_room(self, room_id: int) -> list[Quiz]:
+        return (
+            self.db.query(Quiz)
+            .filter(Quiz.room_id == room_id)
+            .order_by(Quiz.created_at.desc())
+            .all()
+        )
+
+    def list_created_by(self, user_id: int) -> list[Quiz]:
+        return (
+            self.db.query(Quiz)
+            .filter(Quiz.created_by == user_id)
+            .order_by(Quiz.created_at.desc())
+            .all()
+        )
+
+    # Quiz thuộc các phòng mà Sinh viên là thành viên.
+    def list_for_member(self, user_id: int) -> list[Quiz]:
+        return (
+            self.db.query(Quiz)
+            .join(RoomMember, RoomMember.room_id == Quiz.room_id)
+            .filter(RoomMember.user_id == user_id)
+            .order_by(Quiz.created_at.desc())
+            .all()
+        )
 
     def delete(self, quiz: Quiz) -> None:
         # Xóa các lượt làm bài trước (FK quiz_attempts.quiz_id không cascade) để

@@ -162,6 +162,19 @@ def _run_lightweight_migrations() -> None:
                     )
                 )
 
+        # FR-ROOM/FR-QZ: quiz gắn phòng + mật khẩu + hạn nộp (cột mới).
+        quiz_cols = {
+            row[1] for row in conn.execute(text("PRAGMA table_info(quizzes)"))
+        }
+        for col, ddl in (
+            ("room_id", "ADD COLUMN room_id INTEGER"),
+            ("password", "ADD COLUMN password VARCHAR(255)"),
+            ("opens_at", "ADD COLUMN opens_at DATETIME"),
+            ("closes_at", "ADD COLUMN closes_at DATETIME"),
+        ):
+            if quiz_cols and col not in quiz_cols:
+                conn.execute(text(f"ALTER TABLE quizzes {ddl}"))
+
 
 def _run_mssql_lightweight_migrations() -> None:
     """Bring existing SQL Server databases in line with the current models."""

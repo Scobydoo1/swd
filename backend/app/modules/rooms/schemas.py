@@ -41,7 +41,30 @@ class StudentOut(BaseModel):
     email: EmailStr
 
 
+class AnnouncementCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class AnnouncementOut(BaseModel):
+    id: int
+    content: str
+    author_name: str | None
+    created_at: datetime
+
+
 class RoomDetail(RoomOut):
     members: list[MemberOut]
     quizzes: list[QuizOut]
     documents: list[DocumentOut]
+    announcements: list[AnnouncementOut]
+
+
+# FR-ROOM-06: Một dòng bảng điểm tổng của lớp (mọi lượt làm trong phòng).
+class RoomGradeRow(BaseModel):
+    quiz_id: int
+    quiz_title: str
+    user_id: int | None
+    student_name: str | None
+    student_email: str | None
+    score: float
+    created_at: datetime

@@ -14,7 +14,7 @@ Môn học demo: *Software Modeling and Design: UML, Use Cases, Patterns, and So
 |-----------|-------|
 | **Chat & Hỏi đáp RAG** | **Chỉ Sinh viên** chat theo ngữ cảnh hội thoại, trích dẫn nguồn, giới hạn trong tài liệu đã index (Admin giữ quyền giám sát; Giảng viên không dùng AI chat) |
 | **Quản lý tài liệu** | Upload PDF/DOCX/PPTX → tự động chunk & embed, xem trạng thái (PROCESSING / INDEXED / FAILED) |
-| **Quiz trắc nghiệm** | Lecturer tạo quiz theo **từng môn học**; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng; **điểm tự gửi về Lecturer** (bảng kết quả kèm tên sinh viên) |
+| **Quiz trắc nghiệm** | Lecturer tạo quiz **gắn theo từng phòng học (lớp)**, có thể đặt **mật khẩu** + **hạn nộp**; student làm bài, nộp → chấm điểm tức thì, hiện đáp án đúng; **điểm tự gửi về Lecturer** (bảng kết quả kèm tên sinh viên) |
 | **AI soạn quiz (Gemini)** | Lecturer nhờ **AI soạn nháp đề** từ tài liệu môn học (chọn số câu + chủ đề) → đề hiện ngay trong form để **duyệt & chỉnh sửa** trước khi lưu (không tự lưu) |
 | **Bảng điểm & xem lại (Grade)** | Sinh viên có trang **Bảng điểm** gom mọi kết quả quiz **theo môn học**; bấm **Xem lại** từng lượt làm để soi đáp án đã chọn vs đáp án đúng |
 | **Định dạng toán (LaTeX)** | Chat và đề/đáp án quiz render công thức toán bằng KaTeX (`$...$` inline, `$$...$$` block) |
