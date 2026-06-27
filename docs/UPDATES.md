@@ -1,7 +1,37 @@
 # Cập nhật tính năng (Updates)
 
-Tài liệu mô tả 5 nhóm tính năng bổ sung gần đây và thiết kế của chúng.
+Tài liệu mô tả các nhóm tính năng bổ sung gần đây và thiết kế của chúng.
 Xem thêm: [DESIGN.md](DESIGN.md) · [REQUIREMENTS.md](REQUIREMENTS.md) · [../CLAUDE.md](../CLAUDE.md)
+
+---
+
+## 📅 Nhật ký thay đổi (Changelog)
+
+### Ngày 27/06/2026
+
+Bổ sung 8 nhóm tính năng (chi tiết thiết kế ở các mục §1–§7 bên dưới):
+
+1. **Múi giờ Việt Nam** — mọi mốc thời gian hiển thị theo `Asia/Ho_Chi_Minh`
+   (backend lưu UTC, frontend format giờ VN). → §1
+2. **Định dạng toán học (KaTeX)** — chat và đề/đáp án quiz render `$...$` (inline)
+   và `$$...$$` (block). → §2
+3. **Xem lại kết quả & Bảng điểm (Grade)** — Sinh viên có trang **Bảng điểm** gom
+   kết quả quiz theo môn + **Xem lại** chi tiết từng lượt làm. → §3
+4. **Nạp giáo trình chính vào RAG** — script `seed_textbook.py` ingest sách Gomaa
+   để hỏi đáp chạy sẵn. → §4
+5. **AI soạn quiz (Gemini)** — Lecturer nhờ AI **đọc tài liệu của môn** để soạn
+   nháp đề, rồi **duyệt/chỉnh sửa** trước khi lưu (AI không tự lưu). → §5
+6. **Phòng học = Lớp học online** — quiz **gắn theo từng phòng**, có **mật khẩu**
+   (chỉ Lecturer xem lại) + **hạn nộp**; thêm **bảng tin** và **bảng điểm tổng của
+   lớp**; Sinh viên chỉ thấy & làm quiz của lớp mình. → §6
+7. **Tài liệu theo từng môn** — tạo môn mới bắt đầu với kho tài liệu trống, không
+   lẫn tài liệu của môn cũ. → §7
+8. **AI đọc tài liệu môn khi soạn đề** — xác nhận pipeline `generate` lấy ngữ cảnh
+   từ tài liệu đã index của môn (course suy ra từ phòng đã chọn). → §5
+
+> Các tài khoản demo: `admin@demo.com` / `lecturer@demo.com` / `student@demo.com`
+> (mật khẩu `admin123` / `lecturer123` / `student123`). Đã kiểm thử end-to-end
+> luồng tạo quiz có mật khẩu/hạn → Sinh viên làm trong phòng → bảng điểm lớp.
 
 ---
 
