@@ -272,6 +272,20 @@ def _run_mssql_lightweight_migrations() -> None:
                 conn, "account_requests", "requested_role"
             )
 
+        # FR-ROOM/FR-QZ: quiz gắn phòng + mật khẩu + hạn nộp (cột mới trên DB cũ).
+        # create_all chỉ tạo bảng MỚI, không ALTER bảng đã có — nên DB SQL Server
+        # tạo trước tính năng room sẽ thiếu các cột này và gây 500 khi tạo phòng
+        # (RoomService._to_out -> quiz.list_by_room đọc quizzes.room_id).
+        if _mssql_table_exists(conn, "quizzes"):
+            for col, ddl in (
+                ("room_id", "room_id INTEGER NULL"),
+                ("password", "password NVARCHAR(255) NULL"),
+                ("opens_at", "opens_at DATETIME NULL"),
+                ("closes_at", "closes_at DATETIME NULL"),
+            ):
+                if not _mssql_column_exists(conn, "quizzes", col):
+                    conn.execute(text(f"ALTER TABLE [quizzes] ADD {ddl}"))
+
 
 def _mssql_table_exists(conn, table_name: str) -> bool:
     return bool(
