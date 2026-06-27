@@ -5,6 +5,7 @@ import App from "./App";
 import { AuthProvider } from "./auth/AuthContext";
 import { ThemeProvider } from "./theme/ThemeContext";
 import { LanguageProvider } from "./i18n/LanguageContext";
+import "katex/dist/katex.min.css";
 import "./index.css";
 
 // basename = base của Vite (import.meta.env.BASE_URL): "/swd/" trên GitHub Pages,

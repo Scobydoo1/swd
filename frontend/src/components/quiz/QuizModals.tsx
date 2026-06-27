@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { useLang } from "../../i18n/LanguageContext";
+import { formatDateTimeVN } from "../../lib/datetime";
+import { MathText } from "../../lib/math";
 import type { AttemptResult, QuizAttemptRow, QuizDetail } from "../../types";
 import { IconCheck, IconClose } from "../Icons";
 
@@ -84,7 +86,7 @@ export function TakeQuizModal({
           return (
             <div key={q.id} className="mb-5">
               <p className="mb-2 font-medium text-ink">
-                {qi + 1}. {q.text}
+                {qi + 1}. <MathText>{q.text}</MathText>
               </p>
               <div className="flex flex-col gap-2">
                 {q.options.map((opt, oi) => {
@@ -117,7 +119,7 @@ export function TakeQuizModal({
                       >
                         {String.fromCharCode(65 + oi)}
                       </span>
-                      <span className="text-ink">{opt}</span>
+                      <span className="text-ink"><MathText>{opt}</MathText></span>
                       {result && r && oi === r.correct_index && (
                         <span className="ml-auto text-emerald-600">
                           <IconCheck size={16} />
@@ -164,7 +166,7 @@ export function AttemptsModal({
   quizTitle: string;
   onClose: () => void;
 }) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [attempts, setAttempts] = useState<QuizAttemptRow[] | null>(null);
 
   useEffect(() => {
@@ -227,9 +229,7 @@ export function AttemptsModal({
                     </span>
                   </td>
                   <td className="py-2.5 text-ink-faint">
-                    {new Date(a.created_at).toLocaleString(
-                      lang === "vi" ? "vi-VN" : "en-US"
-                    )}
+                    {formatDateTimeVN(a.created_at)}
                   </td>
                 </tr>
               ))}

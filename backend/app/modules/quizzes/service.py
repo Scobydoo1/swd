@@ -1,19 +1,44 @@
 import json
+import re
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import settings
+from app.llm.client import LlmClient
+from app.modules.quizzes.models import Quiz
 from app.modules.quizzes.repository import QuizRepository
 from app.modules.quizzes.schemas import (
     AttemptOut,
     AttemptResult,
+    AttemptReview,
+    GeneratedQuiz,
+    GradeItem,
+    QuestionIn,
     QuestionOut,
     QuestionResult,
     QuizCreate,
     QuizDetail,
+    QuizGenerateRequest,
     QuizOut,
+    ReviewQuestion,
 )
+from app.modules.rag.facade import RagFacade
 from app.modules.users.models import Role, User
+
+# FR-QZ-05: System prompt buộc AI trả về JSON thuần để parse được an toàn.
+_GEN_SYSTEM_PROMPT = """Bạn là trợ lý soạn đề trắc nghiệm cho giảng viên đại học.
+Dựa CHỦ YẾU trên NGỮ CẢNH tài liệu môn học (nếu có), hãy soạn câu hỏi trắc nghiệm chất lượng.
+
+QUY TẮC:
+- Mỗi câu có ĐÚNG 4 lựa chọn, chỉ 1 đáp án đúng.
+- Câu hỏi và lựa chọn bằng tiếng Việt, rõ ràng, không trùng lặp.
+- Bám sát nội dung tài liệu; không bịa thông tin ngoài phạm vi.
+- CHỈ trả về một mảng JSON hợp lệ, KHÔNG kèm giải thích hay markdown.
+
+Định dạng bắt buộc (correct_index là chỉ số 0-based của đáp án đúng):
+[{"text": "...", "options": ["A", "B", "C", "D"], "correct_index": 0}]
+"""
 
 
 class QuizService:
@@ -24,6 +49,82 @@ class QuizService:
     def create(self, payload: QuizCreate, user: User) -> QuizOut:
         quiz = self.repo.create(payload, created_by=user.id)
         return self._to_out(quiz)
+
+    # FR-QZ-05: AI soạn NHÁP đề từ tài liệu môn học để Lecturer duyệt/sửa.
+    def generate(self, payload: QuizGenerateRequest) -> GeneratedQuiz:
+        if settings.llm_provider == "local":
+            raise HTTPException(
+                status_code=400,
+                detail="Tính năng AI soạn đề cần bật Gemini "
+                "(đặt GOOGLE_API_KEY và LLM_PROVIDER=gemini).",
+            )
+
+        # Lấy ngữ cảnh từ tài liệu của môn để bám sát nội dung.
+        query = payload.topic or "tổng quan kiến thức trọng tâm của môn học"
+        retrieved = RagFacade().retrieve(
+            query, k=8, course_id=payload.course_id
+        )
+        if not retrieved:
+            raise HTTPException(
+                status_code=400,
+                detail="Môn học chưa có tài liệu đã index để AI soạn đề.",
+            )
+        context = "\n\n---\n".join(
+            f"[{r['document_name']} - trang {r['page']}]\n{r['source_text']}"
+            for r in retrieved
+        )[:12000]
+
+        topic_line = (
+            f"Chủ đề/yêu cầu cụ thể: {payload.topic}\n" if payload.topic else ""
+        )
+        user_msg = (
+            f"{topic_line}Số câu hỏi cần soạn: {payload.num_questions}.\n\n"
+            f"NGỮ CẢNH TÀI LIỆU:\n{context}"
+        )
+        messages = [
+            {"role": "system", "content": _GEN_SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ]
+        try:
+            raw = LlmClient().chat(messages, temperature=0.7)
+        except Exception as e:  # lỗi gọi Gemini -> báo rõ, không lộ stack.
+            raise HTTPException(
+                status_code=502, detail=f"Gọi AI thất bại: {e}"
+            )
+
+        questions = self._parse_generated(raw, payload.num_questions)
+        if not questions:
+            raise HTTPException(
+                status_code=502,
+                detail="AI không trả về đề hợp lệ, hãy thử lại.",
+            )
+        title = payload.topic.strip() if payload.topic else "Quiz do AI soạn"
+        return GeneratedQuiz(title=title[:200], questions=questions)
+
+    @staticmethod
+    def _parse_generated(raw: str, limit: int) -> list[QuestionIn]:
+        """Tách mảng JSON từ output của LLM rồi validate từng câu (bỏ câu lỗi)."""
+        text = raw.strip()
+        # Bỏ rào ```json ... ``` nếu có.
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.DOTALL)
+        start, end = text.find("["), text.rfind("]")
+        if start == -1 or end == -1 or end <= start:
+            return []
+        try:
+            items = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            return []
+        out: list[QuestionIn] = []
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            try:
+                out.append(QuestionIn(**it))
+            except Exception:
+                continue  # bỏ qua câu sai định dạng, giữ phần hợp lệ.
+            if len(out) >= limit:
+                break
+        return out
 
     def list(self, course_id: int | None) -> list[QuizOut]:
         return [self._to_out(q) for q in self.repo.list(course_id)]
@@ -42,14 +143,18 @@ class QuizService:
             ],
         )
 
-    def submit(
-        self, quiz_id: int, answers: list[int], user: User
-    ) -> AttemptResult:
-        quiz = self._require(quiz_id)
+    @staticmethod
+    def _grade(
+        quiz: Quiz, answers: list[int]
+    ) -> tuple[float, int, int, list[QuestionResult]]:
+        """Chấm một lượt làm: trả (score%, số đúng, tổng, chi tiết từng câu)."""
         results: list[QuestionResult] = []
         correct = 0
         for i, q in enumerate(quiz.questions):
             your = answers[i] if i < len(answers) else None
+            # -1 (frontend gửi khi bỏ trống) coi như chưa chọn.
+            if your is not None and your < 0:
+                your = None
             ok = your == q.correct_index
             if ok:
                 correct += 1
@@ -63,12 +168,76 @@ class QuizService:
             )
         total = len(quiz.questions)
         score = round(correct / total * 100, 1) if total else 0.0
+        return score, correct, total, results
+
+    def submit(
+        self, quiz_id: int, answers: list[int], user: User
+    ) -> AttemptResult:
+        quiz = self._require(quiz_id)
+        score, correct, total, results = self._grade(quiz, answers)
         # FR-QZ-03: Chỉ lưu điểm của Sinh viên — Lecturer/Admin xem thử đề
         # không ghi attempt để bảng kết quả của lớp không bị nhiễu.
         if user.role == Role.USER:
             self.repo.add_attempt(quiz_id, user.id, score, answers)
         return AttemptResult(
             score=score, correct=correct, total=total, results=results
+        )
+
+    # FR-QZ: Bảng điểm — mọi lượt làm của Sinh viên (lọc theo môn nếu có).
+    def list_my_grades(
+        self, user_id: int, course_id: int | None
+    ) -> list[GradeItem]:
+        items: list[GradeItem] = []
+        for attempt, quiz in self.repo.list_user_attempts(user_id, course_id):
+            answers = json.loads(attempt.answers_json)
+            score, correct, total, _ = self._grade(quiz, answers)
+            items.append(
+                GradeItem(
+                    quiz_id=quiz.id,
+                    quiz_title=quiz.title,
+                    course_id=quiz.course_id,
+                    attempt_id=attempt.id,
+                    score=score,
+                    correct=correct,
+                    total=total,
+                    created_at=attempt.created_at,
+                )
+            )
+        return items
+
+    # FR-QZ-02: Sinh viên xem lại chi tiết một lượt làm đã nộp.
+    def get_attempt_review(self, attempt_id: int, user: User) -> AttemptReview:
+        attempt = self.repo.get_attempt(attempt_id)
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bài làm")
+        # Sinh viên chỉ xem bài của chính mình; Lecturer/Admin xem mọi bài.
+        if user.role == Role.USER and attempt.user_id != user.id:
+            raise HTTPException(
+                status_code=403, detail="Không có quyền xem bài làm này"
+            )
+        quiz = self._require(attempt.quiz_id)
+        answers = json.loads(attempt.answers_json)
+        score, correct, total, results = self._grade(quiz, answers)
+        questions = [
+            ReviewQuestion(
+                id=q.id,
+                text=q.text,
+                options=json.loads(q.options_json),
+                your_index=r.your_index,
+                correct_index=r.correct_index,
+                is_correct=r.is_correct,
+            )
+            for q, r in zip(quiz.questions, results)
+        ]
+        return AttemptReview(
+            attempt_id=attempt.id,
+            quiz_id=quiz.id,
+            quiz_title=quiz.title,
+            score=score,
+            correct=correct,
+            total=total,
+            created_at=attempt.created_at,
+            questions=questions,
         )
 
     def delete(self, quiz_id: int, user: User) -> None:

@@ -52,6 +52,48 @@ export interface QuizAttemptRow {
   created_at: string;
 }
 
+export interface GeneratedQuestion {
+  text: string;
+  options: string[];
+  correct_index: number;
+}
+
+export interface GeneratedQuiz {
+  title: string;
+  questions: GeneratedQuestion[];
+}
+
+export interface GradeItem {
+  quiz_id: number;
+  quiz_title: string;
+  course_id: number;
+  attempt_id: number;
+  score: number;
+  correct: number;
+  total: number;
+  created_at: string;
+}
+
+export interface ReviewQuestion {
+  id: number;
+  text: string;
+  options: string[];
+  your_index: number | null;
+  correct_index: number;
+  is_correct: boolean;
+}
+
+export interface AttemptReview {
+  attempt_id: number;
+  quiz_id: number;
+  quiz_title: string;
+  score: number;
+  correct: number;
+  total: number;
+  created_at: string;
+  questions: ReviewQuestion[];
+}
+
 export interface Room {
   id: number;
   name: string;

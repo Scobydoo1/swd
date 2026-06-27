@@ -5,6 +5,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { AdminPage } from "./pages/AdminPage";
 import { ChatPage } from "./pages/ChatPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
+import { GradePage } from "./pages/GradePage";
 import { LoginPage } from "./pages/LoginPage";
 import { QuizzesPage } from "./pages/QuizzesPage";
 import { RoomDetailPage } from "./pages/RoomDetailPage";
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="rooms/:id" element={<RoomDetailPage />} />
         <Route path="quizzes" element={<QuizzesPage />} />
+        <Route path="grades" element={<GradePage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

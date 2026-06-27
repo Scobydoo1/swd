@@ -10,6 +10,7 @@ import {
   IconPlus,
   IconQuiz,
   IconSidebar,
+  IconSpark,
   IconTrash,
 } from "../components/Icons";
 import {
@@ -17,7 +18,12 @@ import {
   Overlay,
   TakeQuizModal,
 } from "../components/quiz/QuizModals";
-import type { Course, QuizDetail, QuizListItem } from "../types";
+import type {
+  Course,
+  GeneratedQuiz,
+  QuizDetail,
+  QuizListItem,
+} from "../types";
 
 type Ctx = { openSidebar: () => void };
 
@@ -190,6 +196,12 @@ function CreateQuizModal({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // FR-QZ-05: AI soạn nháp đề để Lecturer duyệt/sửa.
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiNum, setAiNum] = useState(5);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiInfo, setAiInfo] = useState("");
+
   useEffect(() => {
     api.get<Course[]>("/courses").then((r) => {
       setCourses(r.data);
@@ -199,6 +211,41 @@ function CreateQuizModal({
 
   const patchQ = (i: number, patch: Partial<DraftQuestion>) =>
     setQuestions((qs) => qs.map((q, j) => (j === i ? { ...q, ...patch } : q)));
+
+  const generateAi = async () => {
+    if (!courseId) {
+      setError(t("quiz.aiNeedCourse"));
+      return;
+    }
+    setAiBusy(true);
+    setError("");
+    setAiInfo("");
+    try {
+      const { data } = await api.post<GeneratedQuiz>("/quizzes/generate", {
+        course_id: courseId,
+        num_questions: aiNum,
+        topic: aiTopic.trim() || null,
+      });
+      // Đổ nháp AID vào form để Lecturer chỉnh sửa (pad đủ 4 lựa chọn).
+      setQuestions(
+        data.questions.map((q) => {
+          const options = [...q.options];
+          while (options.length < 4) options.push("");
+          return {
+            text: q.text,
+            options,
+            correct_index: q.correct_index,
+          };
+        })
+      );
+      if (!title.trim()) setTitle(data.title);
+      setAiInfo(t("quiz.aiReview"));
+    } catch (e: any) {
+      setError(e.response?.data?.detail ?? t("quiz.aiFailed"));
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const valid =
     !!courseId &&
@@ -266,6 +313,48 @@ function CreateQuizModal({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* FR-QZ-05: Khu vực AI soạn nháp đề để Lecturer duyệt/sửa */}
+        <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/5 p-4">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent">
+            <IconSpark size={16} /> {t("quiz.aiTitle")}
+          </div>
+          <p className="mb-3 text-xs text-ink-faint">{t("quiz.aiHint")}</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={aiTopic}
+              onChange={(e) => setAiTopic(e.target.value)}
+              placeholder={t("quiz.aiTopicPlaceholder")}
+              className="flex-1 rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink outline-none focus:border-accent"
+            />
+            <select
+              value={aiNum}
+              onChange={(e) => setAiNum(Number(e.target.value))}
+              title={t("quiz.aiNumQuestions")}
+              className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            >
+              {[3, 5, 8, 10].map((n) => (
+                <option key={n} value={n}>
+                  {t("quiz.numQuestions", { n })}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={generateAi}
+              disabled={aiBusy}
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:opacity-50"
+            >
+              <IconSpark size={15} />
+              {aiBusy ? t("quiz.aiGenerating") : t("quiz.aiGenerateBtn")}
+            </button>
+          </div>
+          {aiInfo && (
+            <p className="mt-2.5 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
+              {aiInfo}
+            </p>
+          )}
         </div>
 
         {questions.map((q, qi) => (

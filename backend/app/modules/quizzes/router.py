@@ -5,8 +5,12 @@ from app.database import get_db
 from app.modules.quizzes.schemas import (
     AttemptOut,
     AttemptResult,
+    AttemptReview,
+    GeneratedQuiz,
+    GradeItem,
     QuizCreate,
     QuizDetail,
+    QuizGenerateRequest,
     QuizOut,
     SubmitRequest,
 )
@@ -27,6 +31,16 @@ def create_quiz(
     return QuizService(db).create(payload, user)
 
 
+# FR-QZ-05: Giảng viên/Admin nhờ AI soạn NHÁP đề (chưa lưu — duyệt/sửa sau).
+@router.post("/generate", response_model=GeneratedQuiz)
+def generate_quiz(
+    payload: QuizGenerateRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_role(Role.LECTURER, Role.ADMIN)),
+):
+    return QuizService(db).generate(payload)
+
+
 # Mọi người xem danh sách quiz (lọc theo môn nếu cần).
 @router.get("", response_model=list[QuizOut])
 def list_quizzes(
@@ -35,6 +49,27 @@ def list_quizzes(
     _=Depends(get_current_user),
 ):
     return QuizService(db).list(course_id)
+
+
+# FR-QZ: Bảng điểm của chính mình (mọi lượt làm, lọc theo môn nếu có).
+# Đặt TRƯỚC "/{quiz_id}" để không bị nuốt thành quiz_id="grades".
+@router.get("/grades/me", response_model=list[GradeItem])
+def my_grades(
+    course_id: int | None = None,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return QuizService(db).list_my_grades(user.id, course_id)
+
+
+# FR-QZ-02: Xem lại chi tiết một lượt làm đã nộp (đáp án + đáp án đúng).
+@router.get("/attempts/{attempt_id}", response_model=AttemptReview)
+def review_attempt(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return QuizService(db).get_attempt_review(attempt_id, user)
 
 
 # FR-STU: Sinh viên mở quiz để làm (đáp án đúng được ẩn).
