@@ -1,3 +1,8 @@
+# Hoãn đánh giá annotation (PEP 563): method `list` làm lu mờ builtin `list`
+# trong class, nên các annotation `-> list[Quiz]` phía dưới sẽ vỡ nếu đánh giá
+# ngay khi load. Stringized annotations tránh TypeError lúc import.
+from __future__ import annotations
+
 import json
 
 from sqlalchemy.orm import Session

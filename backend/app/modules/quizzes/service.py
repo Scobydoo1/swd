@@ -1,3 +1,8 @@
+# Hoãn đánh giá annotation (PEP 563): method `list` làm lu mờ builtin `list`
+# trong class, nên các annotation `-> list[QuizOut]` phía dưới sẽ vỡ nếu đánh
+# giá ngay khi load. Stringized annotations tránh TypeError lúc import.
+from __future__ import annotations
+
 import json
 import re
 from datetime import datetime
