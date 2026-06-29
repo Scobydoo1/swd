@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     # Vector store backend: "chroma" (dev local) | "pgvector" (Neon/Postgres).
     vector_backend: str = "chroma"
 
+    # FR-ROOM-03: giới hạn dung lượng file lưu để tải lại (bytes lưu trong DB).
+    # Bound dung lượng Neon; quá cỡ vẫn index được nhưng không lưu để tải.
+    max_download_mb: int = 25
+
     cors_origins: str = (
         "http://localhost:5173,http://localhost,https://localhost,"
         "capacitor://localhost,https://scobydoo1.github.io"

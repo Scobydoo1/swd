@@ -1,4 +1,7 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -56,6 +59,24 @@ def get_room(
     user=Depends(get_current_user),
 ):
     return RoomService(db).detail(room_id, user)
+
+
+# FR-ROOM-03: Thành viên phòng tải nguyên bản tài liệu học tập của môn.
+@router.get("/{room_id}/documents/{document_id}/download")
+def download_room_document(
+    room_id: int,
+    document_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    file = RoomService(db).download_document(room_id, document_id, user)
+    # RFC 5987: encode tên file để hỗ trợ ký tự Unicode (tiếng Việt).
+    disposition = f"attachment; filename*=UTF-8''{quote(file.filename)}"
+    return Response(
+        content=file.content,
+        media_type=file.content_type,
+        headers={"Content-Disposition": disposition},
+    )
 
 
 # FR-ROOM-04: Mời Sinh viên vào phòng — người tạo phòng / Admin.

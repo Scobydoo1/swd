@@ -125,6 +125,10 @@ def _run_lightweight_migrations() -> None:
         if "plan" in user_cols:
             conn.execute(text("ALTER TABLE users DROP COLUMN plan"))
 
+        # FR-USR: ảnh đại diện (data URI) cho hồ sơ người dùng.
+        if "avatar_url" not in user_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+
         # role (enum) -> roles table: thêm role_id, backfill từ cột role cũ rồi
         # bỏ cột role (SQLite 3.35+ hỗ trợ DROP COLUMN; Python 3.11 đủ mới).
         if "role_id" not in user_cols:
@@ -201,6 +205,11 @@ def _run_postgres_lightweight_migrations() -> None:
 
         # Đã bỏ subscription: gỡ cột plan cũ nếu còn.
         conn.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS plan"))
+
+        # FR-USR: ảnh đại diện (data URI) cho hồ sơ người dùng.
+        conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT")
+        )
 
         # role (enum) -> roles table: thêm role_id, backfill từ cột role cũ rồi bỏ.
         conn.execute(
@@ -291,6 +300,12 @@ def _run_mssql_lightweight_migrations() -> None:
     """Bring existing SQL Server databases in line with the current models."""
     with engine.begin() as conn:
         if _mssql_table_exists(conn, "users"):
+            # FR-USR: ảnh đại diện (data URI) cho hồ sơ người dùng.
+            if not _mssql_column_exists(conn, "users", "avatar_url"):
+                conn.execute(
+                    text("ALTER TABLE [users] ADD avatar_url VARCHAR(MAX) NULL")
+                )
+
             if not _mssql_column_exists(conn, "users", "role_id"):
                 conn.execute(text("ALTER TABLE [users] ADD role_id INTEGER NULL"))
 

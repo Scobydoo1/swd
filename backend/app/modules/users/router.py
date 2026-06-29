@@ -5,15 +5,38 @@ from app.database import get_db
 from app.modules.users.models import Role
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import (
+    PasswordChange,
+    ProfileUpdate,
     RoleUpdate,
     UserCreate,
     UserCreateResult,
     UserOut,
 )
 from app.modules.users.service import UserService
-from app.shared.dependencies import require_role
+from app.shared.dependencies import get_current_user, require_role
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+# FR-USR: Mọi người dùng tự sửa hồ sơ của mình (tên + ảnh đại diện). Khai báo
+# trước các route /{user_id} để "me" không bị nuốt.
+@router.patch("/me", response_model=UserOut)
+def update_my_profile(
+    payload: ProfileUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return UserService(db).update_profile(user, payload)
+
+
+# FR-USR: Mọi người dùng tự đổi mật khẩu (cần mật khẩu hiện tại).
+@router.patch("/me/password", status_code=204)
+def change_my_password(
+    payload: PasswordChange,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    UserService(db).change_password(user, payload)
 
 
 # FR-ADM-01: Danh sách người dùng (chỉ Admin).
