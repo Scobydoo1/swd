@@ -23,6 +23,10 @@ else:
 
 DB_DIALECT = engine.dialect.name
 IS_MSSQL = DB_DIALECT == "mssql" or settings.database_url.startswith("mssql")
+# Neon/Postgres: dialect là "postgresql". Hỗ trợ cả URL postgres:// lẫn postgresql://.
+IS_POSTGRES = DB_DIALECT in ("postgresql", "postgres") or settings.database_url.startswith(
+    ("postgresql", "postgres")
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -60,6 +64,8 @@ def init_db() -> None:
         _run_lightweight_migrations()
     elif IS_MSSQL:
         _run_mssql_lightweight_migrations()
+    elif IS_POSTGRES:
+        _run_postgres_lightweight_migrations()
 
 
 def ensure_schema_current() -> None:
@@ -68,6 +74,8 @@ def ensure_schema_current() -> None:
         _run_lightweight_migrations()
     elif IS_MSSQL:
         _run_mssql_lightweight_migrations()
+    elif IS_POSTGRES:
+        _run_postgres_lightweight_migrations()
 
 
 def _seed_roles() -> None:
@@ -176,6 +184,109 @@ def _run_lightweight_migrations() -> None:
                 conn.execute(text(f"ALTER TABLE quizzes {ddl}"))
 
 
+def _run_postgres_lightweight_migrations() -> None:
+    """Đồng bộ schema cho Postgres/Neon (create_all không tự ALTER bảng cũ).
+
+    Postgres không chạy nhánh SQLite/MSSQL nên trước đây DB Neon cũ thiếu các cột
+    mới — đáng chú ý là quizzes.room_id khiến TẠO PHÒNG HỌC vỡ (RoomService._to_out
+    đếm quiz theo room_id). Dùng ADD COLUMN IF NOT EXISTS (idempotent) của Postgres.
+    """
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE chat_sessions "
+                "ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT false"
+            )
+        )
+
+        # Đã bỏ subscription: gỡ cột plan cũ nếu còn.
+        conn.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS plan"))
+
+        # role (enum) -> roles table: thêm role_id, backfill từ cột role cũ rồi bỏ.
+        conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER")
+        )
+        if _pg_column_exists(conn, "users", "role"):
+            conn.execute(
+                text(
+                    "UPDATE users SET role_id = CASE role "
+                    "WHEN 'ADMIN' THEN 1 WHEN 'LECTURER' THEN 2 ELSE 3 END "
+                    "WHERE role_id IS NULL"
+                )
+            )
+            conn.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS role"))
+        else:
+            conn.execute(
+                text("UPDATE users SET role_id = 3 WHERE role_id IS NULL")
+            )
+
+        # account_requests.requested_role (enum) -> requested_role_id (FK roles).
+        if _pg_table_exists(conn, "account_requests"):
+            conn.execute(
+                text(
+                    "ALTER TABLE account_requests "
+                    "ADD COLUMN IF NOT EXISTS requested_role_id INTEGER"
+                )
+            )
+            if _pg_column_exists(conn, "account_requests", "requested_role"):
+                conn.execute(
+                    text(
+                        "UPDATE account_requests SET requested_role_id = CASE "
+                        "requested_role WHEN 'ADMIN' THEN 1 "
+                        "WHEN 'LECTURER' THEN 2 ELSE 3 END "
+                        "WHERE requested_role_id IS NULL"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE account_requests "
+                        "DROP COLUMN IF EXISTS requested_role"
+                    )
+                )
+            else:
+                conn.execute(
+                    text(
+                        "UPDATE account_requests SET requested_role_id = 3 "
+                        "WHERE requested_role_id IS NULL"
+                    )
+                )
+
+        # FR-ROOM/FR-QZ: quiz gắn phòng + mật khẩu + hạn nộp (cột mới). Thiếu
+        # room_id chính là nguyên nhân tạo phòng học lỗi trên Neon.
+        for ddl in (
+            "ADD COLUMN IF NOT EXISTS room_id INTEGER",
+            'ADD COLUMN IF NOT EXISTS "password" VARCHAR(255)',
+            "ADD COLUMN IF NOT EXISTS opens_at TIMESTAMP",
+            "ADD COLUMN IF NOT EXISTS closes_at TIMESTAMP",
+        ):
+            conn.execute(text(f"ALTER TABLE quizzes {ddl}"))
+
+
+def _pg_table_exists(conn, table_name: str) -> bool:
+    return bool(
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_name = :t AND table_schema = current_schema()"
+            ),
+            {"t": table_name},
+        ).first()
+    )
+
+
+def _pg_column_exists(conn, table_name: str, column_name: str) -> bool:
+    return bool(
+        conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = :t AND column_name = :c "
+                "AND table_schema = current_schema()"
+            ),
+            {"t": table_name, "c": column_name},
+        ).first()
+    )
+
+
 def _run_mssql_lightweight_migrations() -> None:
     """Bring existing SQL Server databases in line with the current models."""
     with engine.begin() as conn:
@@ -271,6 +382,28 @@ def _run_mssql_lightweight_migrations() -> None:
             _mssql_drop_column_if_exists(
                 conn, "account_requests", "requested_role"
             )
+
+        if _mssql_table_exists(conn, "chat_sessions") and not _mssql_column_exists(
+            conn, "chat_sessions", "pinned"
+        ):
+            conn.execute(
+                text(
+                    "ALTER TABLE [chat_sessions] "
+                    "ADD pinned BIT NOT NULL DEFAULT 0"
+                )
+            )
+
+        # FR-ROOM/FR-QZ: quiz gắn phòng + mật khẩu + hạn nộp (cột mới). Thiếu
+        # room_id khiến tạo phòng học lỗi (giống Postgres/SQLite).
+        if _mssql_table_exists(conn, "quizzes"):
+            for col, ddl in (
+                ("room_id", "ADD room_id INTEGER NULL"),
+                ("password", "ADD [password] VARCHAR(255) NULL"),
+                ("opens_at", "ADD opens_at DATETIME NULL"),
+                ("closes_at", "ADD closes_at DATETIME NULL"),
+            ):
+                if not _mssql_column_exists(conn, "quizzes", col):
+                    conn.execute(text(f"ALTER TABLE [quizzes] {ddl}"))
 
 
 def _mssql_table_exists(conn, table_name: str) -> bool:

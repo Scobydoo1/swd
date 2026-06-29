@@ -1,3 +1,8 @@
+# Hoãn đánh giá annotation (PEP 563): method `list` ở dưới làm lu mờ builtin
+# `list` trong phạm vi class, nên annotation `-> list[Chapter]` sẽ vỡ nếu được
+# đánh giá ngay. Import này biến annotation thành chuỗi → tránh TypeError khi load.
+from __future__ import annotations
+
 from sqlalchemy.orm import Session
 
 from app.modules.courses.models import Chapter, Course
