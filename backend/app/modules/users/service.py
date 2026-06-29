@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.modules.auth.security import hash_password
+from app.modules.auth.security import hash_password, verify_password
 from app.modules.chat.models import ChatSession, Message
 from app.modules.courses.models import Course
 from app.modules.documents.models import Document
@@ -12,7 +12,13 @@ from app.modules.quizzes.models import Quiz, QuizAttempt
 from app.modules.rooms.models import Room, RoomMember
 from app.modules.users.models import Role, User
 from app.modules.users.repository import UserRepository
-from app.modules.users.schemas import UserCreate, UserCreateResult, UserOut
+from app.modules.users.schemas import (
+    PasswordChange,
+    ProfileUpdate,
+    UserCreate,
+    UserCreateResult,
+    UserOut,
+)
 from app.shared import mailer
 
 
@@ -41,6 +47,24 @@ class UserService:
             email_sent=sent,
             temp_password=None if sent else password,
         )
+
+    # FR-USR: Người dùng tự cập nhật hồ sơ của mình (tên + ảnh đại diện).
+    def update_profile(self, user: User, payload: ProfileUpdate) -> User:
+        fields = payload.model_fields_set
+        kwargs: dict = {}
+        if "full_name" in fields:
+            kwargs["full_name"] = payload.full_name
+        if "avatar_url" in fields:  # truyền cả khi = None để xóa ảnh
+            kwargs["avatar_url"] = payload.avatar_url
+        return self.repo.update_profile(user, **kwargs)
+
+    # FR-USR: Đổi mật khẩu — xác thực mật khẩu hiện tại trước khi đổi.
+    def change_password(self, user: User, payload: PasswordChange) -> None:
+        if not verify_password(payload.current_password, user.password_hash):
+            raise HTTPException(
+                status_code=400, detail="Mật khẩu hiện tại không đúng"
+            )
+        self.repo.update_password(user, hash_password(payload.new_password))
 
     # FR-ADM-01: Admin xóa người dùng. Dữ liệu cá nhân (phiên chat, lượt làm quiz)
     # bị xóa; nội dung dùng chung (môn học, tài liệu, quiz đã tạo) được giữ lại và

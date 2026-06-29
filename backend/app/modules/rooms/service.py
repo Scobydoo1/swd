@@ -65,10 +65,15 @@ class RoomService:
                 )
         # Quiz gắn riêng phòng này (không còn dùng chung toàn môn).
         quizzes = QuizService(self.db).list_for_room(room.id)
-        documents = [
-            DocumentOut.model_validate(d)
-            for d in DocumentService(self.db).list(room.course_id)
-        ]
+        doc_service = DocumentService(self.db)
+        course_docs = doc_service.list(room.course_id)
+        # FR-ROOM-03: đánh dấu tài liệu nào có nguyên bản để hiện nút tải.
+        with_file = doc_service.ids_with_file([d.id for d in course_docs])
+        documents = []
+        for d in course_docs:
+            out = DocumentOut.model_validate(d)
+            out.has_file = d.id in with_file
+            documents.append(out)
         announcements = [
             self._announcement_out(a)
             for a in self.repo.list_announcements(room.id)
@@ -81,6 +86,23 @@ class RoomService:
             documents=documents,
             announcements=announcements,
         )
+
+    # FR-ROOM-03: Thành viên phòng tải nguyên bản tài liệu học tập của môn.
+    def download_document(self, room_id: int, document_id: int, user: User):
+        room = self._require_access(room_id, user)  # Admin / người tạo / thành viên
+        doc_service = DocumentService(self.db)
+        doc = doc_service.repo.get(document_id)
+        if not doc or doc.course_id != room.course_id:
+            raise HTTPException(
+                status_code=404, detail="Không tìm thấy tài liệu trong phòng này"
+            )
+        file = doc_service.get_file(document_id)
+        if not file:
+            raise HTTPException(
+                status_code=404,
+                detail="Tài liệu này không có bản tải xuống",
+            )
+        return file
 
     # FR-ROOM-05: Đăng / xoá thông báo (chỉ người tạo phòng / Admin).
     def add_announcement(

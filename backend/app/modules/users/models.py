@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, case
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, case
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -71,6 +71,9 @@ class User(Base):
         back_populates="users",
         lazy="joined",
     )
+    # Ảnh đại diện lưu dạng data URI (data:image/...;base64,...) ngay trong DB.
+    # Render có filesystem tạm (mất khi redeploy) nên không lưu file ra đĩa.
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # role là entity riêng (bảng roles). hybrid_property cho phép vừa dùng

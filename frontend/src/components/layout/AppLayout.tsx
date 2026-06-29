@@ -7,6 +7,7 @@ import { useLang } from "../../i18n/LanguageContext";
 import { LANGS } from "../../i18n/translations";
 import { parseServerDate } from "../../lib/datetime";
 import type { ChatSession } from "../../types";
+import { ProfileSettingsModal } from "../profile/ProfileSettingsModal";
 import {
   IconBook,
   IconChart,
@@ -18,6 +19,7 @@ import {
   IconQuiz,
   IconRoom,
   IconSearch,
+  IconSettings,
   IconSidebar,
   IconTrash,
   IconUsers,
@@ -79,6 +81,7 @@ export function AppLayout() {
     () => typeof window === "undefined" || window.innerWidth >= 1024
   );
   const [q, setQ] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const isAdmin = user?.role === "ADMIN";
   const isLecturer = user?.role === "LECTURER";
@@ -298,17 +301,40 @@ export function AppLayout() {
             ))}
           </div>
           <div className="flex items-center gap-2.5 rounded-xl px-2 py-1.5">
-            <div className="avatar avatar-user sm">
-              {user?.full_name?.charAt(0) ?? "?"}
-            </div>
-            <div className="min-w-0 flex-1 leading-tight">
-              <div className="truncate text-[14.5px] font-semibold">
-                {user?.full_name}
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl text-left transition hover:opacity-90"
+              title={t("profile.open")}
+            >
+              {user?.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt=""
+                  className="h-[30px] w-[30px] flex-none rounded-full object-cover"
+                />
+              ) : (
+                <div className="avatar avatar-user sm">
+                  {user?.full_name?.charAt(0) ?? "?"}
+                </div>
+              )}
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="truncate text-[14.5px] font-semibold">
+                  {user?.full_name}
+                </div>
+                <div className="flex items-center gap-1.5 text-[12.5px] text-ink-faint">
+                  <span className="truncate">
+                    {t(`role.${user?.role ?? "USER"}`)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 text-[12.5px] text-ink-faint">
-                <span className="truncate">{t(`role.${user?.role ?? "USER"}`)}</span>
-              </div>
-            </div>
+            </button>
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="grid h-9 w-9 place-items-center rounded-[10px] text-ink-faint transition hover:bg-surface-2 hover:text-ink"
+              title={t("profile.open")}
+            >
+              <IconSettings size={18} />
+            </button>
             <button
               onClick={() => {
                 logout();
@@ -335,6 +361,10 @@ export function AppLayout() {
         )}
         <Outlet context={{ openSidebar: () => setOpen(true) }} />
       </main>
+
+      {profileOpen && (
+        <ProfileSettingsModal onClose={() => setProfileOpen(false)} />
+      )}
     </div>
   );
 }

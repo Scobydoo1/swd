@@ -8,6 +8,7 @@ import {
   IconChart,
   IconChevron,
   IconClose,
+  IconDownload,
   IconFile,
   IconPlus,
   IconQuiz,
@@ -56,6 +57,7 @@ export function RoomDetailPage() {
   const [pwPrompt, setPwPrompt] = useState<QuizListItem | null>(null);
   const [showGrades, setShowGrades] = useState(false);
   const [annText, setAnnText] = useState("");
+  const [dlError, setDlError] = useState<string | null>(null);
 
   const canManage =
     !!user &&
@@ -77,6 +79,26 @@ export function RoomDetailPage() {
     if (!confirm(t("rooms.removeMemberConfirm", { name }))) return;
     await api.delete(`/rooms/${id}/members/${userId}`);
     load();
+  };
+
+  // FR-ROOM-03: tải nguyên bản tài liệu học tập (blob -> tải về máy).
+  const downloadDoc = async (docId: number, filename: string) => {
+    setDlError(null);
+    try {
+      const res = await api.get(`/rooms/${id}/documents/${docId}/download`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setDlError(t("rooms.downloadFailed"));
+    }
   };
 
   // Mở quiz: nếu có mật khẩu và là Sinh viên thì hỏi mật khẩu trước.
@@ -355,6 +377,11 @@ export function RoomDetailPage() {
             </span>
             {t("rooms.documentsTitle")} ({room.documents.length})
           </h2>
+          {dlError && (
+            <p className="mb-2 rounded-xl bg-danger/10 px-4 py-2.5 text-sm text-danger">
+              {dlError}
+            </p>
+          )}
           {room.documents.length === 0 ? (
             <p className="rounded-xl border border-dashed border-line p-4 text-center text-sm text-ink-faint">
               {t("rooms.noDocs")}
@@ -386,6 +413,15 @@ export function RoomDetailPage() {
                   >
                     {t(`docs.status${d.status}`)}
                   </span>
+                  {d.has_file && (
+                    <button
+                      onClick={() => downloadDoc(d.id, d.filename)}
+                      className="grid h-9 w-9 flex-none place-items-center rounded-lg text-ink-faint transition hover:bg-surface hover:text-accent"
+                      title={t("rooms.download")}
+                    >
+                      <IconDownload size={17} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

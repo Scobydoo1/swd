@@ -2,6 +2,9 @@ from sqlalchemy.orm import Session
 
 from app.modules.users.models import Role, User
 
+# Sentinel để phân biệt "không truyền" với "truyền None" (xóa ảnh đại diện).
+_UNSET = object()
+
 
 class UserRepository:
     def __init__(self, db: Session):
@@ -32,6 +35,27 @@ class UserRepository:
 
     def update_role(self, user: User, role: Role) -> User:
         user.role = role
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def update_profile(
+        self,
+        user: User,
+        *,
+        full_name: str | None = None,
+        avatar_url=_UNSET,
+    ) -> User:
+        if full_name is not None:
+            user.full_name = full_name
+        if avatar_url is not _UNSET:  # None => xóa ảnh; bỏ qua nếu không truyền
+            user.avatar_url = avatar_url
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def update_password(self, user: User, password_hash: str) -> User:
+        user.password_hash = password_hash
         self.db.commit()
         self.db.refresh(user)
         return user

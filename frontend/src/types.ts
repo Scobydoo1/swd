@@ -5,6 +5,7 @@ export interface User {
   email: string;
   full_name: string;
   role: Role;
+  avatar_url?: string | null;
   created_at: string;
 }
 
@@ -190,6 +191,7 @@ export interface Document {
   file_type: "PDF" | "DOCX" | "PPTX";
   status: DocStatus;
   num_chunks: number;
+  has_file?: boolean;
   created_at: string;
 }
 

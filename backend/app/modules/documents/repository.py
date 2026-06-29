@@ -1,6 +1,15 @@
+# Hoãn đánh giá annotation (PEP 563): method `list` làm lu mờ builtin `list`
+# trong class, nên annotation `list[int]` ở method khác sẽ vỡ nếu đánh giá ngay.
+from __future__ import annotations
+
 from sqlalchemy.orm import Session
 
-from app.modules.documents.models import Document, FileType, Status
+from app.modules.documents.models import (
+    Document,
+    DocumentFile,
+    FileType,
+    Status,
+)
 
 
 class DocumentRepository:
@@ -52,5 +61,40 @@ class DocumentRepository:
         return doc
 
     def delete(self, doc: Document) -> None:
+        # Xóa bytes file kèm tài liệu để không còn bản mồ côi.
+        self.db.query(DocumentFile).filter(
+            DocumentFile.document_id == doc.id
+        ).delete()
         self.db.delete(doc)
         self.db.commit()
+
+    # FR-ROOM-03: lưu / đọc nguyên bản file để tải xuống.
+    def save_file(
+        self, document_id: int, content: bytes, content_type: str | None
+    ) -> None:
+        existing = self.db.get(DocumentFile, document_id)
+        if existing:
+            existing.content = content
+            existing.content_type = content_type
+        else:
+            self.db.add(
+                DocumentFile(
+                    document_id=document_id,
+                    content=content,
+                    content_type=content_type,
+                )
+            )
+        self.db.commit()
+
+    def get_file(self, document_id: int) -> DocumentFile | None:
+        return self.db.get(DocumentFile, document_id)
+
+    def ids_with_file(self, document_ids: list[int]) -> set[int]:
+        if not document_ids:
+            return set()
+        rows = (
+            self.db.query(DocumentFile.document_id)
+            .filter(DocumentFile.document_id.in_(document_ids))
+            .all()
+        )
+        return {r[0] for r in rows}

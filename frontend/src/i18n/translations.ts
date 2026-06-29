@@ -43,6 +43,26 @@ const vi: Dict = {
   "nav.unpin": "Bỏ ghim",
   "nav.logout": "Đăng xuất",
   "nav.deleteChatConfirm": 'Xóa cuộc trò chuyện "{title}"?',
+
+  // profile / hồ sơ cá nhân
+  "profile.title": "Hồ sơ cá nhân",
+  "profile.open": "Cài đặt hồ sơ",
+  "profile.fullName": "Họ và tên",
+  "profile.email": "Email",
+  "profile.changePhoto": "Đổi ảnh",
+  "profile.removePhoto": "Gỡ ảnh",
+  "profile.save": "Lưu thay đổi",
+  "profile.saved": "Đã lưu hồ sơ",
+  "profile.passwordSection": "Đổi mật khẩu",
+  "profile.currentPassword": "Mật khẩu hiện tại",
+  "profile.newPassword": "Mật khẩu mới",
+  "profile.confirmPassword": "Nhập lại mật khẩu mới",
+  "profile.changePassword": "Đổi mật khẩu",
+  "profile.passwordChanged": "Đã đổi mật khẩu",
+  "profile.passwordMismatch": "Mật khẩu nhập lại không khớp",
+  "profile.passwordTooShort": "Mật khẩu mới tối thiểu 6 ký tự",
+  "profile.invalidImage": "Vui lòng chọn một tệp hình ảnh",
+  "profile.imageTooLarge": "Ảnh quá lớn (tối đa ~1MB)",
   "nav.language": "Ngôn ngữ",
 
   // login
@@ -262,6 +282,9 @@ const vi: Dict = {
   "rooms.documentsTitle": "Tài liệu học tập",
   "rooms.noDocs": "Môn này chưa có tài liệu.",
   "rooms.createQuiz": "Tạo quiz cho lớp",
+  "rooms.download": "Tải xuống",
+  "rooms.downloadFailed": "Tải tài liệu thất bại",
+  "rooms.notDownloadable": "Tài liệu này chưa có bản tải xuống",
   // Bảng tin / thông báo
   "rooms.announcements": "Bảng tin",
   "rooms.noAnnouncements": "Chưa có thông báo nào.",
@@ -327,6 +350,26 @@ const en: Dict = {
   "nav.unpin": "Unpin",
   "nav.logout": "Log out",
   "nav.deleteChatConfirm": 'Delete conversation "{title}"?',
+
+  // profile
+  "profile.title": "Profile",
+  "profile.open": "Profile settings",
+  "profile.fullName": "Full name",
+  "profile.email": "Email",
+  "profile.changePhoto": "Change photo",
+  "profile.removePhoto": "Remove photo",
+  "profile.save": "Save changes",
+  "profile.saved": "Profile saved",
+  "profile.passwordSection": "Change password",
+  "profile.currentPassword": "Current password",
+  "profile.newPassword": "New password",
+  "profile.confirmPassword": "Confirm new password",
+  "profile.changePassword": "Change password",
+  "profile.passwordChanged": "Password changed",
+  "profile.passwordMismatch": "Passwords do not match",
+  "profile.passwordTooShort": "New password must be at least 6 characters",
+  "profile.invalidImage": "Please choose an image file",
+  "profile.imageTooLarge": "Image too large (max ~1MB)",
   "nav.language": "Language",
 
   // login
@@ -546,6 +589,9 @@ const en: Dict = {
   "rooms.documentsTitle": "Study materials",
   "rooms.noDocs": "No documents for this course yet.",
   "rooms.createQuiz": "Create class quiz",
+  "rooms.download": "Download",
+  "rooms.downloadFailed": "Failed to download document",
+  "rooms.notDownloadable": "This document has no downloadable copy yet",
   // Announcements
   "rooms.announcements": "Announcements",
   "rooms.noAnnouncements": "No announcements yet.",
