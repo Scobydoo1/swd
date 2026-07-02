@@ -306,7 +306,7 @@ sequenceDiagram
     participant FE as React UI
     participant R as DocumentRouter
     participant S as DocumentService
-    participant P as Parser (Strategy)
+    participant P as Parser (Factory Method)
     participant RAG as RagFacade
     participant E as Google Embedding
     participant C as ChromaDB
@@ -444,7 +444,7 @@ graph TB
 graph TB
     subgraph "Patterns áp dụng"
         P1["Layered / Repository<br/>Router → Service → Repository"]
-        P2["Strategy<br/>Parser chọn theo file type"]
+        P2["Factory Method<br/>create_parser() tạo Pdf/Docx/Pptx Parser"]
         P3["Facade<br/>RagFacade che giấu Embedder/Store/Retriever"]
         P4["Dependency Injection<br/>FastAPI Depends inject service/repo"]
         P5["DTO<br/>Pydantic schemas tách model DB & API"]
@@ -455,7 +455,7 @@ graph TB
 | Pattern | Vấn đề giải quyết | Áp dụng |
 |---------|-------------------|---------|
 | **Layered / Repository** | Tách biệt HTTP / nghiệp vụ / dữ liệu | Mọi module |
-| **Strategy** | Xử lý nhiều định dạng file khác nhau | `parsers.py` (PDF/DOCX/PPTX) |
+| **Factory Method** | Xử lý nhiều định dạng file khác nhau, tạo đúng parser mà caller không cần biết class cụ thể | `parsers.py`: `create_parser(file_type)` (PDF/DOCX/PPTX) |
 | **Facade** | Đơn giản hóa subsystem RAG phức tạp | `rag/` module |
 | **Dependency Injection** | Loose coupling, dễ test | FastAPI `Depends` |
 | **DTO** | Tách API contract khỏi DB schema | Pydantic schemas |

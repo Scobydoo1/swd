@@ -372,7 +372,7 @@ Cùng một frontend React build ra **2 sản phẩm**: website (Vite) và **app
 | Pattern | Áp dụng ở đâu |
 |---------|---------------|
 | **Layered / Repository** | Mỗi module: router → service → repository |
-| **Strategy** | `parsers.py`: chọn parser theo file type (PDF/DOCX/PPTX) |
+| **Factory Method** | `parsers.py`: `create_parser(file_type)` trả về `PdfParser` / `DocxParser` / `PptxParser` (cùng interface `DocumentParser`) |
 | **Facade** | `rag` module che giấu embedder + vector_store + retriever |
 | **Dependency Injection** | FastAPI `Depends` inject service/repo/session |
 | **DTO** | Pydantic schemas tách biệt model DB và API contract |
