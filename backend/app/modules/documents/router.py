@@ -27,6 +27,7 @@ async def upload_document(
         course_id=course_id,
         chapter_id=chapter_id,
         uploaded_by=user.id,
+        user=user,
     )
 
 
@@ -40,11 +41,12 @@ def list_documents(
     return DocumentService(db).list(course_id)
 
 
-# FR-ADM-02 / FR-LEC: Xóa tài liệu (+ vector) — Lecturer của mình hoặc Admin.
+# FR-ADM-02 / FR-LEC: Xóa tài liệu (+ vector) — Lecturer của mình hoặc Admin
+# (ownership kiểm tra trong service).
 @router.delete("/{doc_id}", status_code=204)
 def delete_document(
     doc_id: int,
     db: Session = Depends(get_db),
-    _=Depends(require_role(Role.LECTURER, Role.ADMIN)),
+    user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
 ):
-    DocumentService(db).delete(doc_id)
+    DocumentService(db).delete(doc_id, user)

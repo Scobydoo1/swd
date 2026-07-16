@@ -8,10 +8,12 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.modules.courses.repository import CourseRepository
 from app.modules.documents import chunker, parsers
 from app.modules.documents.models import Document, FileType
 from app.modules.documents.repository import DocumentRepository
 from app.modules.rag.facade import RagFacade
+from app.modules.users.models import Role, User
 
 # Content-Type chuẩn cho từng loại file khi không có sẵn lúc upload.
 _DEFAULT_CONTENT_TYPE = {
@@ -46,7 +48,22 @@ class DocumentService:
         course_id: int,
         chapter_id: int | None,
         uploaded_by: int | None,
+        user: User | None = None,
     ) -> Document:
+        # FR-LEC-01: môn học phải tồn tại; Giảng viên chỉ upload vào môn mình
+        # phụ trách (Admin không giới hạn; user=None cho luồng nội bộ/seed).
+        course = CourseRepository(self.db).get(course_id)
+        if not course:
+            raise HTTPException(status_code=404, detail="Không tìm thấy môn học")
+        if (
+            user is not None
+            and user.role != Role.ADMIN
+            and course.owner_id not in (None, user.id)
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Chỉ giảng viên phụ trách môn này được upload tài liệu",
+            )
         try:
             file_type = parsers.detect_file_type(filename)
             parsers.validate_mime(file_type, content_type)
@@ -104,9 +121,20 @@ class DocumentService:
             content_type=content_type,
         )
 
-    def delete(self, doc_id: int) -> None:
+    def delete(self, doc_id: int, user: User | None = None) -> None:
         doc = self.repo.get(doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu")
+        # §6: Lecturer chỉ xóa tài liệu CỦA MÌNH (người upload hoặc chủ môn);
+        # Admin xóa mọi tài liệu; user=None cho luồng nội bộ (xóa cả môn học).
+        if user is not None and user.role != Role.ADMIN:
+            course = CourseRepository(self.db).get(doc.course_id)
+            owner_id = course.owner_id if course else None
+            if doc.uploaded_by != user.id and owner_id != user.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Chỉ người upload, giảng viên phụ trách môn hoặc "
+                    "Admin được xóa tài liệu này",
+                )
         self.rag.delete_document(doc_id)
         self.repo.delete(doc)

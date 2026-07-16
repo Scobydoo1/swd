@@ -6,7 +6,7 @@ from app.modules.courses.repository import CourseRepository
 from app.modules.documents.repository import DocumentRepository
 from app.modules.documents.service import DocumentService
 from app.modules.quizzes.repository import QuizRepository
-from app.modules.rooms.models import Room, RoomMember
+from app.modules.rooms.models import Announcement, Room, RoomMember
 from app.modules.users.models import Role, User
 
 
@@ -47,6 +47,12 @@ class CourseService:
             )
         ]
         if room_ids:
+            # Thông báo của phòng phải xóa trước Room (FK room_id) — bỏ sót
+            # bảng này từng làm vỡ FK trên Postgres -> Giảng viên không xóa
+            # được môn có phòng đã đăng thông báo.
+            self.db.query(Announcement).filter(
+                Announcement.room_id.in_(room_ids)
+            ).delete(synchronize_session=False)
             self.db.query(RoomMember).filter(
                 RoomMember.room_id.in_(room_ids)
             ).delete(synchronize_session=False)

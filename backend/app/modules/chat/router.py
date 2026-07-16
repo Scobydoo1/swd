@@ -59,10 +59,13 @@ def list_sessions(
     )
 
 
-# FR-USR-04: Lịch sử messages của một phiên (Owner hoặc Admin).
+# FR-USR-04 / §11.4: Lịch sử messages của một phiên (Owner hoặc Admin).
+# Hỗ trợ phân trang qua limit/offset; mặc định trả từ đầu phiên.
 @router.get("/sessions/{session_id}", response_model=SessionDetail)
 def get_session(
     session_id: int,
+    limit: int | None = None,
+    offset: int = 0,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -72,8 +75,11 @@ def get_session(
     if user.role != Role.ADMIN and session.user_id != user.id:
         raise HTTPException(status_code=403, detail="Không có quyền xem phiên này")
 
+    page = session.messages[offset:]
+    if limit is not None:
+        page = page[:limit]
     messages = []
-    for m in session.messages:
+    for m in page:
         cites = json.loads(m.citations_json) if m.citations_json else []
         messages.append(
             MessageOut(

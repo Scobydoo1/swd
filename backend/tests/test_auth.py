@@ -6,14 +6,17 @@ def test_public_register_removed(client):
     assert res.status_code in (404, 405)
 
 
-def _patch_google_verify(monkeypatch, email: str):
+def _patch_google_verify(monkeypatch, email: str, verified: bool = True):
     """Mock google-auth verify: trả payload với email cho trước."""
     from app.modules.auth import service as auth_service
 
     monkeypatch.setattr(
         auth_service.google_id_token,
         "verify_oauth2_token",
-        lambda token, request, audience: {"email": email},
+        lambda token, request, audience: {
+            "email": email,
+            "email_verified": verified,
+        },
     )
 
 
@@ -44,6 +47,14 @@ def test_google_login_known_email_returns_jwt(client, monkeypatch, admin_headers
     data = res.json()
     assert data["access_token"]
     assert data["user"]["email"] == "admin@maple-tests.com"
+
+
+def test_google_login_unverified_email_401(client, monkeypatch, admin_headers):
+    # Email Google chưa xác minh -> từ chối kể cả khi tài khoản tồn tại.
+    _enable_google(monkeypatch)
+    _patch_google_verify(monkeypatch, "admin@maple-tests.com", verified=False)
+    res = client.post("/api/auth/google", json={"id_token": "fake"})
+    assert res.status_code == 401
 
 
 def test_google_login_invalid_token_401(client, monkeypatch):

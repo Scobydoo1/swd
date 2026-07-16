@@ -43,3 +43,9 @@ frontend/.devserver.err.log
 frontend/android/app/build/
 frontend/android/.gradle/
 frontend/android/build/
+
+# Tài liệu dự án (docs/, spec, textbook) — chỉ đưa readme.md + source code lên GitHub
+docs/
+CLAUDE.md
+AGENTS.md
+/*.pdf

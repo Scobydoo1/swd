@@ -88,7 +88,9 @@ class ChatService:
     def _resolve_session(self, req: ChatRequest, user_id: int | None):
         if req.session_id:
             session = self.repo.get_session(req.session_id)
-            if not session:
+            # FR-USR-04: chỉ chủ phiên được chat tiếp vào phiên đó. Trả 404
+            # (không phải 403) để không xác nhận phiên của người khác tồn tại.
+            if not session or session.user_id != user_id:
                 raise HTTPException(status_code=404, detail="Không tìm thấy phiên")
             return session
         title = req.question[:50] + ("..." if len(req.question) > 50 else "")

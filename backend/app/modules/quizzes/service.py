@@ -293,12 +293,17 @@ class QuizService:
         attempt = self.repo.get_attempt(attempt_id)
         if not attempt:
             raise HTTPException(status_code=404, detail="Không tìm thấy bài làm")
-        # Sinh viên chỉ xem bài của chính mình; Lecturer/Admin xem mọi bài.
-        if user.role == Role.USER and attempt.user_id != user.id:
+        quiz = self._require(attempt.quiz_id)
+        # FR-QZ-04: chính chủ bài làm, người tạo quiz hoặc Admin — giảng viên
+        # khác không xem được bài làm thuộc quiz không phải của mình.
+        if (
+            user.role != Role.ADMIN
+            and attempt.user_id != user.id
+            and quiz.created_by != user.id
+        ):
             raise HTTPException(
                 status_code=403, detail="Không có quyền xem bài làm này"
             )
-        quiz = self._require(attempt.quiz_id)
         answers = json.loads(attempt.answers_json)
         score, correct, total, results = self._grade(quiz, answers)
         questions = [

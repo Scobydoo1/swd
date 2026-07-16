@@ -76,3 +76,8 @@ def admin_headers(client) -> dict[str, str]:
 @pytest.fixture()
 def student_headers(client) -> dict[str, str]:
     return _auth_headers("student@maple-tests.com", "USER")
+
+
+@pytest.fixture()
+def lecturer_headers(client) -> dict[str, str]:
+    return _auth_headers("lecturer@maple-tests.com", "LECTURER")

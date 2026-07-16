@@ -9,7 +9,7 @@ from app.modules.chat.models import ChatSession, Message
 from app.modules.courses.models import Course
 from app.modules.documents.models import Document
 from app.modules.quizzes.models import Quiz, QuizAttempt
-from app.modules.rooms.models import Room, RoomMember
+from app.modules.rooms.models import Announcement, Room, RoomMember
 from app.modules.users.models import Role, User
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import (
@@ -108,6 +108,11 @@ class UserService:
         self.db.query(Room).filter(Room.created_by == user_id).update(
             {Room.created_by: None}
         )
+        # Thông báo user từng đăng: giữ nội dung, gỡ tác giả (FK author_id —
+        # bỏ sót sẽ vỡ khóa ngoại trên Postgres khi DELETE users).
+        self.db.query(Announcement).filter(
+            Announcement.author_id == user_id
+        ).update({Announcement.author_id: None})
 
         # 4) Gỡ liên kết người sở hữu trên nội dung dùng chung (giữ lại nội dung).
         self.db.query(Course).filter(Course.owner_id == user_id).update(

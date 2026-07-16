@@ -37,6 +37,13 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token Google không hợp lệ",
             )
+        # Chỉ chấp nhận email Google đã xác minh — tránh mạo danh qua tài
+        # khoản Workspace/IdP chưa verify email.
+        if not info.get("email_verified", False):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Email Google chưa được xác minh",
+            )
         email = info.get("email")
         user = self.repo.get_by_email(email) if email else None
         if not user:

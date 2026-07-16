@@ -64,24 +64,11 @@ def run() -> None:
         sv1 = login(client, "sv1@smokemail.com", users["sv1@smokemail.com"])
         sv2 = login(client, "sv2@smokemail.com", users["sv2@smokemail.com"])
 
-        # Lecturer tạo môn + quiz.
+        # Lecturer tạo môn.
         r = client.post(
             "/api/courses", json={"name": "Môn Smoke", "description": ""}, headers=lec
         )
         course_id = r.json()["id"]
-        r = client.post(
-            "/api/quizzes",
-            json={
-                "course_id": course_id,
-                "title": "Quiz Smoke",
-                "questions": [
-                    {"text": "1+1?", "options": ["1", "2"], "correct_index": 1},
-                    {"text": "2+2?", "options": ["4", "5"], "correct_index": 0},
-                ],
-            },
-            headers=lec,
-        )
-        quiz_id = r.json()["id"]
 
         # FR-ROOM-01: Student không tạo được room; Lecturer tạo được.
         r = client.post(
@@ -97,6 +84,22 @@ def run() -> None:
         )
         check(r.status_code == 201, "Lecturer tạo room")
         room_id = r.json()["id"]
+
+        # FR-QZ: quiz gắn theo phòng học (người tạo phòng giao quiz).
+        r = client.post(
+            "/api/quizzes",
+            json={
+                "room_id": room_id,
+                "title": "Quiz Smoke",
+                "questions": [
+                    {"text": "1+1?", "options": ["1", "2"], "correct_index": 1},
+                    {"text": "2+2?", "options": ["4", "5"], "correct_index": 0},
+                ],
+            },
+            headers=lec,
+        )
+        assert r.status_code == 200, r.text
+        quiz_id = r.json()["id"]
 
         # FR-ROOM-04: mời SV1 (ok), mời lại (400), mời Lecturer (400).
         r = client.post(

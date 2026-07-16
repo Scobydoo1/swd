@@ -202,45 +202,6 @@ def run() -> None:  # noqa: PLR0915
         )
         check(r.json()["pinned"] is True, "Ghim phiên chat")
 
-        # ---------- Quiz (FR-QZ) ----------
-        print("\n[Quiz]")
-        r = client.post(
-            "/api/quizzes",
-            json={
-                "course_id": course_id,
-                "title": "Quiz Smoke",
-                "questions": [
-                    {"text": "1+1?", "options": ["1", "2"], "correct_index": 1},
-                    {"text": "2+2?", "options": ["4", "5"], "correct_index": 0},
-                ],
-            },
-            headers=lec,
-        )
-        check(r.status_code == 200, "Lecturer tạo quiz theo môn")
-        quiz_id = r.json()["id"]
-        r = client.get(f"/api/quizzes/{quiz_id}", headers=sv1)
-        check(
-            "correct_index" not in str(r.json()["questions"]),
-            "Đề trả cho SV ẩn đáp án đúng",
-        )
-        r = client.post(
-            f"/api/quizzes/{quiz_id}/submit", json={"answers": [1, 1]}, headers=sv1
-        )
-        check(r.json()["score"] == 50.0, "SV nộp bài -> chấm 50 điểm")
-        client.post(
-            f"/api/quizzes/{quiz_id}/submit", json={"answers": [1, 0]}, headers=lec
-        )
-        r = client.get(f"/api/quizzes/{quiz_id}/attempts", headers=lec)
-        attempts = r.json()
-        check(
-            len(attempts) == 1 and attempts[0]["user_email"] == "sv1@smokemail.com",
-            "Bảng điểm chỉ ghi SV, kèm tên + email",
-        )
-        r = client.get(f"/api/quizzes/{quiz_id}/attempts", headers=sv1)
-        check(r.status_code == 403, "SV không xem được bảng điểm")
-        r = client.delete(f"/api/quizzes/{quiz_id}", headers=sv1)
-        check(r.status_code == 403, "SV không xóa được quiz")
-
         # ---------- Phòng học (FR-ROOM) ----------
         print("\n[Phòng học]")
         r = client.post(
@@ -278,16 +239,59 @@ def run() -> None:  # noqa: PLR0915
         check(len(r.json()) == 1, "SV1 thấy phòng được mời")
         r = client.get("/api/rooms", headers=sv2)
         check(len(r.json()) == 0, "SV2 không thấy phòng")
+        r = client.get("/api/rooms", headers=admin)
+        check(len(r.json()) == 1, "Admin thấy mọi phòng")
+
+        # ---------- Quiz (FR-QZ) — quiz gắn theo phòng học ----------
+        print("\n[Quiz]")
+        r = client.post(
+            "/api/quizzes",
+            json={
+                "room_id": room_id,
+                "title": "Quiz Smoke",
+                "questions": [
+                    {"text": "1+1?", "options": ["1", "2"], "correct_index": 1},
+                    {"text": "2+2?", "options": ["4", "5"], "correct_index": 0},
+                ],
+            },
+            headers=lec,
+        )
+        check(r.status_code == 200, "Lecturer tạo quiz cho phòng của mình")
+        quiz_id = r.json()["id"]
+        r = client.get(f"/api/quizzes/{quiz_id}", headers=sv1)
+        check(
+            "correct_index" not in str(r.json()["questions"]),
+            "Đề trả cho SV ẩn đáp án đúng",
+        )
+        r = client.get(f"/api/quizzes/{quiz_id}", headers=sv2)
+        check(r.status_code == 403, "SV ngoài phòng không mở được quiz")
+        r = client.post(
+            f"/api/quizzes/{quiz_id}/submit", json={"answers": [1, 1]}, headers=sv1
+        )
+        check(r.json()["score"] == 50.0, "SV nộp bài -> chấm 50 điểm")
+        client.post(
+            f"/api/quizzes/{quiz_id}/submit", json={"answers": [1, 0]}, headers=lec
+        )
+        r = client.get(f"/api/quizzes/{quiz_id}/attempts", headers=lec)
+        attempts = r.json()
+        check(
+            len(attempts) == 1 and attempts[0]["user_email"] == "sv1@smokemail.com",
+            "Bảng điểm chỉ ghi SV, kèm tên + email",
+        )
+        r = client.get(f"/api/quizzes/{quiz_id}/attempts", headers=sv1)
+        check(r.status_code == 403, "SV không xem được bảng điểm")
+        r = client.delete(f"/api/quizzes/{quiz_id}", headers=sv1)
+        check(r.status_code == 403, "SV không xóa được quiz")
+
+        # Chi tiết phòng sau khi có quiz: thành viên + quiz gắn phòng.
         r = client.get(f"/api/rooms/{room_id}", headers=sv1)
         detail = r.json()
         check(
             len(detail["members"]) == 1 and len(detail["quizzes"]) == 1,
-            "Chi tiết phòng: thành viên + quiz của môn",
+            "Chi tiết phòng: thành viên + quiz của phòng",
         )
         r = client.get(f"/api/rooms/{room_id}", headers=sv2)
         check(r.status_code == 403, "SV ngoài phòng bị chặn")
-        r = client.get("/api/rooms", headers=admin)
-        check(len(r.json()) == 1, "Admin thấy mọi phòng")
         sv1_id = detail["members"][0]["user_id"]
         r = client.delete(f"/api/rooms/{room_id}/members/{sv1_id}", headers=lec)
         check(r.status_code == 204, "Gỡ SV khỏi phòng")
