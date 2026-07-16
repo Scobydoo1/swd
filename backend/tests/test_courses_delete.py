@@ -61,10 +61,19 @@ def test_lecturer_cannot_delete_other_lecturers_course(client, lecturer_headers)
     """Giảng viên KHÔNG được xóa môn của giảng viên khác -> 403."""
     from app.database import SessionLocal
     from app.modules.courses.models import Course
+    from app.modules.users.models import Role, User
 
     db = SessionLocal()
     try:
-        other = Course(name="Môn của GV khác", owner_id=None)
+        other_lecturer = User(
+            email="gv.khac@maple-tests.com",
+            password_hash="not-a-real-hash",
+            full_name="GV khác",
+            role=Role.LECTURER,
+        )
+        db.add(other_lecturer)
+        db.commit()
+        other = Course(name="Môn của GV khác", owner_id=other_lecturer.id)
         db.add(other)
         db.commit()
         db.refresh(other)
@@ -74,3 +83,30 @@ def test_lecturer_cannot_delete_other_lecturers_course(client, lecturer_headers)
 
     res = client.delete(f"/api/courses/{other_id}", headers=lecturer_headers)
     assert res.status_code == 403
+
+
+def test_lecturer_deletes_ownerless_course(client, lecturer_headers):
+    """Môn không còn chủ (owner_id NULL — GV phụ trách đã bị xóa, hoặc seed cũ)
+    phải xóa được bởi bất kỳ Giảng viên nào — nhất quán với quyền upload tài
+    liệu (documents/service.py coi owner_id NULL là môn dùng chung)."""
+    from app.database import SessionLocal
+    from app.modules.courses.models import Course
+
+    db = SessionLocal()
+    try:
+        orphan = Course(name="Môn mồ côi (GV đã bị xóa)", owner_id=None)
+        db.add(orphan)
+        db.commit()
+        db.refresh(orphan)
+        orphan_id = orphan.id
+    finally:
+        db.close()
+
+    res = client.delete(f"/api/courses/{orphan_id}", headers=lecturer_headers)
+    assert res.status_code == 204, res.text
+
+    db = SessionLocal()
+    try:
+        assert db.query(Course).filter(Course.id == orphan_id).count() == 0
+    finally:
+        db.close()

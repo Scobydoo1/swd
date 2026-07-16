@@ -17,12 +17,14 @@ class CourseService:
         self.db = db
         self.repo = CourseRepository(db)
 
-    # FR-ADM-02 / FR-LEC-02: Admin xóa mọi môn; Giảng viên chỉ xóa môn của mình.
+    # FR-ADM-02 / FR-LEC-02: Admin xóa mọi môn; Giảng viên xóa môn của mình.
+    # owner_id NULL (GV phụ trách đã bị xóa / seed cũ) coi là môn dùng chung —
+    # Giảng viên nào cũng xóa được, nhất quán với quyền upload tài liệu.
     def delete(self, course_id: int, user: User) -> None:
         course = self.repo.get(course_id)
         if not course:
             raise HTTPException(status_code=404, detail="Không tìm thấy môn học")
-        if user.role != Role.ADMIN and course.owner_id != user.id:
+        if user.role != Role.ADMIN and course.owner_id not in (None, user.id):
             raise HTTPException(
                 status_code=403,
                 detail="Chỉ Admin hoặc giảng viên phụ trách được xóa môn học",
