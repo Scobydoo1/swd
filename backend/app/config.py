@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     chroma_dir: str = "./data/chroma"
     database_url: str = "sqlite:///./data/app.db"
 
+    # Connection pool cho Postgres/SQL Server (SQLite không dùng). Mặc định
+    # SQLAlchemy chỉ 5+10 — nâng lên để nhiều người dùng đọc đồng thời không
+    # phải chờ connection. Neon free cho phép ~100 kết nối nên 10+20 là an toàn.
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    # Neon auto-suspend làm chết connection nhàn rỗi -> tái tạo sau 5 phút.
+    db_pool_recycle: int = 300
+
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 720

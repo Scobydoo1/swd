@@ -6,15 +6,24 @@ from app.modules.courses.repository import CourseRepository
 from app.modules.courses.schemas import ChapterOut, CourseCreate, CourseOut
 from app.modules.courses.service import CourseService
 from app.modules.users.models import Role
+from app.shared.cache import list_cache
 from app.shared.dependencies import get_current_user, require_role
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
 
-# FR-LEC-02: Danh sách môn học (mọi người dùng đã đăng nhập).
+# FR-LEC-02: Danh sách môn học (mọi người dùng đã đăng nhập). Cache TTL vì
+# mọi role đều gọi khi mở app; invalidate ở các đường ghi bên dưới.
 @router.get("", response_model=list[CourseOut])
 def list_courses(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return CourseRepository(db).list()
+    cached = list_cache.get("courses")
+    if cached is None:
+        cached = [
+            CourseOut.model_validate(c).model_dump()
+            for c in CourseRepository(db).list()
+        ]
+        list_cache.set("courses", cached)
+    return cached
 
 
 # FR-LEC-02: Tạo môn học — Lecturer hoặc Admin.
@@ -24,9 +33,11 @@ def create_course(
     db: Session = Depends(get_db),
     user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
 ):
-    return CourseRepository(db).create(
+    course = CourseRepository(db).create(
         payload.name, payload.description, owner_id=user.id
     )
+    list_cache.invalidate("courses")
+    return course
 
 
 # FR-LEC-02: Danh sách chương của một môn.
@@ -51,3 +62,6 @@ def delete_course(
     user=Depends(require_role(Role.LECTURER, Role.ADMIN)),
 ):
     CourseService(db).delete(course_id, user)
+    # Xóa môn cascade cả tài liệu -> làm mới cả hai danh sách cache.
+    list_cache.invalidate("courses")
+    list_cache.invalidate("documents")

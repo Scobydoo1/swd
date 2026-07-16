@@ -18,8 +18,15 @@ if IS_SQLITE:
         connect_args={"check_same_thread": False},
     )
 else:
-    # SQL Server / DB khác: pool_pre_ping tránh dùng connection đã chết.
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
+    # SQL Server / Postgres: pool_pre_ping tránh dùng connection đã chết;
+    # pool đủ rộng cho nhiều người dùng đồng thời (cấu hình qua env DB_POOL_*).
+    engine = create_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_recycle=settings.db_pool_recycle,
+    )
 
 DB_DIALECT = engine.dialect.name
 IS_MSSQL = DB_DIALECT == "mssql" or settings.database_url.startswith("mssql")

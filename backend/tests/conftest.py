@@ -41,6 +41,16 @@ def client():
         yield c
 
 
+# Cache danh sách (shared/cache.py) sống theo process — dọn trước mỗi test để
+# test ghi thẳng DB (không qua API) không bị che bởi dữ liệu cache của test trước.
+@pytest.fixture(autouse=True)
+def _clear_list_cache():
+    from app.shared.cache import list_cache
+
+    list_cache.clear()
+    yield
+
+
 def _auth_headers(email: str, role_name: str) -> dict[str, str]:
     """Tạo user trực tiếp trong DB (nếu chưa có) và trả Bearer header."""
     from app.database import SessionLocal
